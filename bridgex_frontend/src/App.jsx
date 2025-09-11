@@ -17,13 +17,131 @@ import useBridgeElements from './hooks/useBridgeElements.jsx';
 // Matter.js importado desde CDN
 const { Engine, Render, Runner, World, Bodies, Body, Constraint, Mouse, MouseConstraint, Composite } = Matter;
 
+// Configuraciones de diferentes tipos de vehículos
+// Configuraciones de diferentes tipos de vehículos - MEJORADAS
+// Configuraciones de diferentes tipos de vehículos - VELOCIDADES BALANCEADAS
+// Configuraciones de diferentes tipos de vehículos - VELOCIDADES BALANCEADAS
+const VEHICLE_CONFIGS = {
+  car: {
+    name: "🚗 Carro Ligero",
+    description: "Vehículo estándar, liviano y rápido",
+    chassis: { width: 100, height: 30, density: 0.002 },
+    wheels: { radius: 18, density: 0.003, offsetY: 25 },
+    color: { chassis: "#DC2626", wheels: "#000000" }, // Rojo clásico con llantas negras
+    physics: {
+      friction: 0.6,
+      wheelFriction: 1.2,
+      restitution: 0.1,
+      stiffness: 0.8
+    },
+    speed: 0.0008, // Velocidad base normal (referencia)
+    weight: 1200 // kg
+  },
+  
+  truck: {
+    name: "🚛 Camión Pesado",
+    description: "Vehículo pesado de carga, lento pero resistente",
+    chassis: { width: 140, height: 45, density: 0.012 }, // Más pesado
+    wheels: { radius: 25, density: 0.015, offsetY: 35 },
+    color: { chassis: "#F97316", wheels: "#1C1917" }, // Naranja industrial
+    physics: {
+      friction: 0.9,
+      wheelFriction: 1.8,
+      restitution: 0.02,
+      stiffness: 1.5
+    },
+    speed: 0.0005, // 37% más lento que el carro
+    weight: 8000 // kg
+  },
+  
+  bus: {
+    name: "🚌 Autobús",
+    description: "Vehículo largo para pasajeros",
+    chassis: { width: 160, height: 50, density: 0.008 },
+    wheels: { radius: 22, density: 0.010, offsetY: 30 },
+    color: { chassis: "#EAB308", wheels: "#27272A" }, // Amarillo escolar
+    physics: {
+      friction: 0.8,
+      wheelFriction: 1.5,
+      restitution: 0.05,
+      stiffness: 1.2
+    },
+    speed: 0.0006, // 25% más lento que el carro
+    weight: 5500 // kg
+  },
+  
+  motorcycle: {
+    name: "🏍️ Motocicleta",
+    description: "Vehículo muy ligero y ágil",
+    chassis: { width: 80, height: 20, density: 0.0008 },
+    wheels: { radius: 15, density: 0.0015, offsetY: 18 },
+    color: { chassis: "#059669", wheels: "#1F2937" }, // Verde esmeralda
+    physics: {
+      friction: 0.5,
+      wheelFriction: 1.0,
+      restitution: 0.15,
+      stiffness: 0.6
+    },
+    speed: 0.0011, // 37% más rápido que el carro
+    weight: 250 // kg
+  },
+  
+  tank: {
+    name: "🚜 Tanque Militar",
+    description: "Vehículo blindado super pesado",
+    chassis: { width: 120, height: 40, density: 0.008 }, // Reducida densidad para estabilidad
+    wheels: { radius: 20, density: 0.010, offsetY: 28 }, // Orugas menos pesadas
+    color: { chassis: "#4B5563", wheels: "#111827" }, // Gris militar
+    physics: {
+      friction: 1.2,
+      wheelFriction: 2.5,
+      restitution: 0.005, // Casi sin rebote para máxima estabilidad
+      stiffness: 1.0 // Suspensión más equilibrada
+    },
+    speed: 0.0004, // 50% más lento que el carro
+    weight: 15000 // kg
+  },
+  
+  formula1: {
+    name: "🏎️ Fórmula 1",
+    description: "Carro de carreras ultra rápido",
+    chassis: { width: 110, height: 25, density: 0.0012 },
+    wheels: { radius: 16, density: 0.002, offsetY: 20 },
+    color: { chassis: "#EF4444", wheels: "#0F172A" }, // Rojo Ferrari
+    physics: {
+      friction: 0.3,
+      wheelFriction: 0.8,
+      restitution: 0.2,
+      stiffness: 0.4
+    },
+    speed: 0.0014, // 75% más rápido que el carro
+    weight: 800 // kg
+  },
+  
+  monster_truck: {
+    name: "🚙 Monster Truck",
+    description: "Camioneta con ruedas gigantes",
+    chassis: { width: 130, height: 35, density: 0.007 },
+    wheels: { radius: 35, density: 0.012, offsetY: 45 },
+    color: { chassis: "#8B5CF6", wheels: "#1E1B4B" }, // Púrpura vibrante
+    physics: {
+      friction: 0.8,
+      wheelFriction: 1.6,
+      restitution: 0.4,
+      stiffness: 1.0
+    },
+    speed: 0.0007, // 12% más lento que el carro
+    weight: 4500 // kg
+  }
+};
+
 // Configuración global
 const CANVAS_WIDTH = 1200;
 const CANVAS_HEIGHT = 700;
 
 export default function App() {
   const sceneRef = useRef(null);
-  
+
   // Estados principales
   const [tool, setTool] = useState("node");
   const [selectedNodeIdx, setSelectedNodeIdx] = useState(null);
@@ -35,18 +153,19 @@ export default function App() {
     cost: 0,
     stress: 0
   });
-  
+
   // Estados de UI
   const [showSettings, setShowSettings] = useState(false);
   const [bridgeIntegrity, setBridgeIntegrity] = useState(100);
   const [vehicleProgress, setVehicleProgress] = useState(0);
   const [gameStatus, setGameStatus] = useState("building");
-  
-  // Configuraciones
+
+  // Configuraciones iniciales actualizadas
   const [settings, setSettings] = useState({
     gravity: 0.8,
+    vehicleType: 'car', // Tipo de vehículo por defecto
     vehicleSpeed: 0.0008,
-    vehicleWeight: 3000,
+    vehicleWeight: 1200,
     stressThreshold: 0.7,
     showStress: true,
     autoBreak: true
@@ -56,8 +175,8 @@ export default function App() {
   const updateStats = useCallback(() => {
     setGameStats(prev => {
       const cost = nodeBodies.length * 50 + beamConstraints.length * 100;
-      const avgStress = stressLevelsRef.current.reduce((a, b) => a + b, 0) / 
-                       (stressLevelsRef.current.length || 1);
+      const avgStress = stressLevelsRef.current.reduce((a, b) => a + b, 0) /
+        (stressLevelsRef.current.length || 1);
 
       return {
         nodes: nodeBodies.length,
@@ -70,7 +189,7 @@ export default function App() {
 
   // Hooks personalizados
   const { engineRef, renderRef, initializeEngine, createTerrain } = usePhysicsEngine(settings);
-  
+
   const {
     nodeBodies,
     beamConstraints,
@@ -105,18 +224,18 @@ export default function App() {
   const getMousePos = useCallback((e) => {
     const rect = sceneRef.current?.querySelector("canvas")?.getBoundingClientRect();
     if (!rect) return { x: 0, y: 0 };
-    return { 
-      x: e.clientX - rect.left, 
-      y: e.clientY - rect.top 
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
     };
   }, []);
 
   // Manejar clicks en el canvas
   const handleCanvasClick = useCallback((e) => {
     if (isSimulating) return;
-    
+
     const pos = getMousePos(e);
-    
+
     switch (tool) {
       case "node":
         addNode(pos.x, pos.y, false);
@@ -129,7 +248,7 @@ export default function App() {
         break;
       case "beam":
         if (selectedNodeIdx === null) {
-          const idx = nodeBodies.findIndex(b => 
+          const idx = nodeBodies.findIndex(b =>
             Math.hypot(b.position.x - pos.x, b.position.y - pos.y) < 20
           );
           if (idx >= 0) {
@@ -138,7 +257,7 @@ export default function App() {
             nodeBodies[idx].render.lineWidth = 4;
           }
         } else {
-          const idx2 = nodeBodies.findIndex(b => 
+          const idx2 = nodeBodies.findIndex(b =>
             Math.hypot(b.position.x - pos.x, b.position.y - pos.y) < 20
           );
           if (idx2 >= 0 && idx2 !== selectedNodeIdx) {
@@ -152,7 +271,7 @@ export default function App() {
         }
         break;
       case "load":
-        const idx = nodeBodies.findIndex(b => 
+        const idx = nodeBodies.findIndex(b =>
           Math.hypot(b.position.x - pos.x, b.position.y - pos.y) < 20
         );
         if (idx >= 0) {
@@ -166,83 +285,123 @@ export default function App() {
   }, [tool, selectedNodeIdx, isSimulating, getMousePos, nodeBodies, addNode, removeElement, addBeam, applyLoadToNode]);
 
   // Crear vehículo
-  const spawnVehicle = useCallback(() => {
-    if (!engineRef.current) return;
+const spawnVehicle = useCallback(() => {
+  if (!engineRef.current) return;
 
-    if (vehicle?.parts) {
-      Object.values(vehicle.parts).forEach(part => {
-        if (part.type === 'body' || part.type === 'constraint') {
-          World.remove(engineRef.current.world, part);
-        }
-      });
+  // Remover vehículo anterior si existe
+  if (vehicle?.parts) {
+    Object.values(vehicle.parts).forEach(part => {
+      if (part.type === 'body' || part.type === 'constraint') {
+        World.remove(engineRef.current.world, part);
+      }
+    });
+  }
+
+  // Obtener configuración del vehículo actual
+  const config = VEHICLE_CONFIGS[settings.vehicleType || 'car'];
+
+  const startX = 100;
+  const startY = CANVAS_HEIGHT - 200;
+
+  // Crear chasis con dimensiones y propiedades específicas
+  const chassis = Bodies.rectangle(
+    startX,
+    startY,
+    config.chassis.width,
+    config.chassis.height,
+    {
+      density: config.chassis.density,
+      friction: config.physics.friction,
+      render: {
+        fillStyle: config.color.chassis,
+        strokeStyle: config.color.chassis.replace('4', '8'),
+        lineWidth: 2
+      }
     }
+  );
 
-    const startX = 100;
-    const startY = CANVAS_HEIGHT - 200;
+  // Calcular posiciones de las ruedas basadas en el tamaño del chasis
+  const wheelOffsetX = config.chassis.width * 0.35;
 
-    const chassis = Bodies.rectangle(startX, startY, 100, 30, {
-      density: 0.002,
-      friction: 0.6,
-      render: { 
-        fillStyle: "#EF4444",
-        strokeStyle: "#991B1B",
+  // Rueda trasera
+  const wheelA = Bodies.circle(
+    startX - wheelOffsetX,
+    startY + config.wheels.offsetY,
+    config.wheels.radius,
+    {
+      density: config.wheels.density,
+      friction: config.physics.wheelFriction,
+      restitution: config.physics.restitution,
+      render: {
+        fillStyle: config.color.wheels,
+        strokeStyle: config.color.wheels.replace('4', '8'),
         lineWidth: 2
       }
-    });
+    }
+  );
 
-    const wheelA = Bodies.circle(startX - 35, startY + 25, 18, {
-      density: 0.004,
-      friction: 1.2,
-      restitution: 0.1,
-      render: { 
-        fillStyle: "#1F2937",
-        strokeStyle: "#374151",
+  // Rueda delantera
+  const wheelB = Bodies.circle(
+    startX + wheelOffsetX,
+    startY + config.wheels.offsetY,
+    config.wheels.radius,
+    {
+      density: config.wheels.density,
+      friction: config.physics.wheelFriction,
+      restitution: config.physics.restitution,
+      render: {
+        fillStyle: config.color.wheels,
+        strokeStyle: config.color.wheels.replace('4', '8'),
         lineWidth: 2
       }
-    });
+    }
+  );
 
-    const wheelB = Bodies.circle(startX + 35, startY + 25, 18, {
-      density: 0.004,
-      friction: 1.2,
-      restitution: 0.1,
-      render: { 
-        fillStyle: "#1F2937",
-        strokeStyle: "#374151",
-        lineWidth: 2
-      }
-    });
+  // Suspensión trasera - MEJORADA para estabilidad
+  const axleA = Constraint.create({
+    bodyA: chassis,
+    pointA: { x: -wheelOffsetX, y: config.chassis.height / 2 },
+    bodyB: wheelA,
+    stiffness: config.physics.stiffness,
+    length: config.wheels.offsetY - config.chassis.height / 2,
+    damping: 0.1, // Agregar amortiguación para reducir vibración
+    render: { visible: false }
+  });
 
-    const axleA = Constraint.create({
-      bodyA: chassis,
-      pointA: { x: -35, y: 15 },
-      bodyB: wheelA,
-      stiffness: 0.8,
-      length: 10,
-      render: { visible: false }
-    });
+  // Suspensión delantera - MEJORADA para estabilidad
+  const axleB = Constraint.create({
+    bodyA: chassis,
+    pointA: { x: wheelOffsetX, y: config.chassis.height / 2 },
+    bodyB: wheelB,
+    stiffness: config.physics.stiffness,
+    length: config.wheels.offsetY - config.chassis.height / 2,
+    damping: 0.1, // Agregar amortiguación para reducir vibración
+    render: { visible: false }
+  });
 
-    const axleB = Constraint.create({
-      bodyA: chassis,
-      pointA: { x: 35, y: 15 },
-      bodyB: wheelB,
-      stiffness: 0.8,
-      length: 10,
-      render: { visible: false }
-    });
+  // Agregar elementos al mundo
+  World.add(engineRef.current.world, [chassis, wheelA, wheelB, axleA, axleB]);
 
-    World.add(engineRef.current.world, [chassis, wheelA, wheelB, axleA, axleB]);
+  // Crear objeto vehículo
+  const newVehicle = {
+    parts: { chassis, wheelA, wheelB, axleA, axleB },
+    config: config,
+    startTime: Date.now()
+  };
 
-    const newVehicle = {
-      parts: { chassis, wheelA, wheelB, axleA, axleB },
-      startTime: Date.now()
-    };
+  setVehicle(newVehicle);
+  setVehicleProgress(0);
+  setGameStatus("testing");
 
-    setVehicle(newVehicle);
-    setVehicleProgress(0);
-    setGameStatus("testing");
-    
-    return newVehicle;
-  }, [vehicle]);
+  // Actualizar velocidad del vehículo en settings
+  setSettings(prev => ({
+    ...prev,
+    vehicleSpeed: config.speed,
+    vehicleWeight: config.weight
+  }));
+
+  return newVehicle;
+}, [vehicle, settings.vehicleType]);
 
   // Detección de estrés
   const detectAndBreakOverstressedBeams = useCallback(() => {
@@ -257,10 +416,10 @@ export default function App() {
       const dy = constraint.bodyB.position.y - constraint.bodyA.position.y;
       const currentLength = Math.hypot(dx, dy);
       const restLength = constraint.length || meta.originalLength;
-      
+
       const deformation = Math.abs(currentLength - restLength);
       const stress = deformation / restLength;
-      
+
       stressLevelsRef.current[i] = stress;
 
       if (stress > settings.stressThreshold) {
@@ -270,7 +429,7 @@ export default function App() {
 
     if (toRemove.length > 0) {
       setBridgeIntegrity(prev => Math.max(0, prev - toRemove.length * 20));
-      
+
       toRemove.sort((a, b) => b - a).forEach(idx => {
         const constraint = beamConstraints[idx];
         World.remove(engineRef.current.world, constraint);
@@ -289,39 +448,43 @@ export default function App() {
 
     beamConstraints.forEach((constraint, i) => {
       const stressLevel = stressLevelsRef.current[i] || 0;
-      const color = stressLevel > 0.7 ? "#EF4444" : 
-                   stressLevel > 0.4 ? "#F59E0B" : "#10B981";
+      const color = stressLevel > 0.7 ? "#EF4444" :
+        stressLevel > 0.4 ? "#F59E0B" : "#10B981";
       constraint.render.strokeStyle = color;
       constraint.render.lineWidth = 6 + stressLevel * 4;
     });
   }, [beamConstraints, settings.showStress]);
 
   // Simulación del vehículo simplificada - movimiento lineal
+  // Simulación del vehículo actualizada - dentro del useEffect
+  // Simulación del vehículo - ARREGLADA (mantiene movimiento original)
   useEffect(() => {
     if (!isSimulating || !vehicle?.parts) return;
 
     const interval = setInterval(() => {
       try {
         const { chassis } = vehicle.parts;
-        
-        // Movimiento simple y directo - solo mover horizontalmente
-        const moveSpeed = settings.vehicleSpeed * 10000; // Convertir a velocidad utilizable
-        
-        // Establecer velocidad constante horizontal, mantener velocidad vertical
-        Body.setVelocity(chassis, { 
-          x: moveSpeed, 
+
+        // Usar la velocidad específica del vehículo actual (sistema original)
+        const moveSpeed = vehicle.config ?
+          vehicle.config.speed * 10000 : // Usar velocidad del vehículo
+          settings.vehicleSpeed * 10000;  // Fallback a configuración general
+
+        // MANTENER EL SISTEMA ORIGINAL - Establecer velocidad constante horizontal
+        Body.setVelocity(chassis, {
+          x: moveSpeed,
           y: Math.max(chassis.velocity.y, -5) // Limitar caída libre
         });
 
-        // Mover las ruedas junto con el chasis para mantener sincronía
+        // MANTENER EL SISTEMA ORIGINAL - Mover las ruedas junto con el chasis
         const { wheelA, wheelB } = vehicle.parts;
-        Body.setVelocity(wheelA, { 
-          x: moveSpeed, 
-          y: Math.max(wheelA.velocity.y, -5) 
+        Body.setVelocity(wheelA, {
+          x: moveSpeed,
+          y: Math.max(wheelA.velocity.y, -5)
         });
-        Body.setVelocity(wheelB, { 
-          x: moveSpeed, 
-          y: Math.max(wheelB.velocity.y, -5) 
+        Body.setVelocity(wheelB, {
+          x: moveSpeed,
+          y: Math.max(wheelB.velocity.y, -5)
         });
 
         // Calcular progreso
@@ -397,7 +560,7 @@ export default function App() {
     setIsSimulating(false);
     Composite.clear(engineRef.current.world, false);
     createTerrain(engineRef.current);
-    
+
     resetElements();
     setVehicle(null);
     setSelectedNodeIdx(null);
@@ -411,11 +574,8 @@ export default function App() {
   const toggleSimulation = useCallback(() => {
     if (!isSimulating) {
       // Al iniciar simulación
-      controlNodePhysics(false); // false = hacer dinámicos los nodos no-soporte
-      
-      if (!vehicle) {
-        spawnVehicle();
-      }
+      controlNodePhysics(false); // false = hacer dinámicos los nodos no-soporte  
+      spawnVehicle();
       setIsSimulating(true);
     } else {
       // Al parar simulación
@@ -434,10 +594,10 @@ export default function App() {
         {/* Panel de herramientas superior */}
         <div className="bg-white rounded-xl shadow-lg p-4 mb-4">
           <div className="flex flex-wrap gap-2 items-center justify-center">
-            <BuildingTools 
-              tool={tool} 
-              setTool={setTool} 
-              isSimulating={isSimulating} 
+            <BuildingTools
+              tool={tool}
+              setTool={setTool}
+              isSimulating={isSimulating}
             />
             <SimulationControls
               isSimulating={isSimulating}
@@ -469,7 +629,7 @@ export default function App() {
                   className="cursor-crosshair"
                   style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT }}
                 />
-                
+
                 {/* Instrucciones superpuestas */}
                 {!nodeBodies.length && (
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -489,23 +649,23 @@ export default function App() {
           {/* Panel lateral */}
           <div className="space-y-4">
             <StatsPanel gameStats={gameStats} />
-            
-            <SettingsPanel 
-              settings={settings} 
-              setSettings={setSettings} 
-              showSettings={showSettings} 
+
+            <SettingsPanel
+              settings={settings}
+              setSettings={setSettings}
+              showSettings={showSettings}
             />
-            
+
             <InstructionsPanel />
-            
-            <AnalysisPanel 
+
+            <AnalysisPanel
               nodeBodies={nodeBodies}
               beamConstraints={beamConstraints}
               nodeMetaRef={nodeMetaRef}
               beamMetaRef={beamMetaRef}
             />
-            
-            <ResultsPanel 
+
+            <ResultsPanel
               gameStatus={gameStatus}
               vehicleProgress={vehicleProgress}
               bridgeIntegrity={bridgeIntegrity}
