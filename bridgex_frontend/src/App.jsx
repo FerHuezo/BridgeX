@@ -17,41 +17,42 @@ import useBridgeElements from './hooks/useBridgeElements.jsx';
 // Matter.js importado desde CDN
 const { Engine, Render, Runner, World, Bodies, Body, Constraint, Mouse, MouseConstraint, Composite } = Matter;
 
-// Configuraciones de diferentes tipos de vehículos
-// Configuraciones de diferentes tipos de vehículos - MEJORADAS
-// Configuraciones de diferentes tipos de vehículos - VELOCIDADES BALANCEADAS
-// Configuraciones de diferentes tipos de vehículos - VELOCIDADES BALANCEADAS
+// CONFIGURACIONES DE VEHÍCULOS MEJORADAS PARA ESTABILIDAD
 const VEHICLE_CONFIGS = {
   car: {
     name: "🚗 Carro Ligero",
     description: "Vehículo estándar, liviano y rápido",
-    chassis: { width: 100, height: 30, density: 0.002 },
-    wheels: { radius: 18, density: 0.003, offsetY: 25 },
-    color: { chassis: "#DC2626", wheels: "#000000" }, // Rojo clásico con llantas negras
+    chassis: { width: 100, height: 30, density: 0.003 }, // Ligeramente más pesado
+    wheels: { radius: 18, density: 0.008, offsetY: 25 }, // Ruedas más pesadas para estabilidad
+    color: { chassis: "#DC2626", wheels: "#000000" },
     physics: {
-      friction: 0.6,
-      wheelFriction: 1.2,
-      restitution: 0.1,
-      stiffness: 0.8
+      friction: 0.8,       // Más fricción
+      wheelFriction: 2.0,  // Mucha más fricción en ruedas
+      restitution: 0.05,   // Menos rebote
+      stiffness: 1.2,      // Suspensión más rígida
+      damping: 0.3         // Más amortiguación
     },
-    speed: 0.0008, // Velocidad base normal (referencia)
-    weight: 1200 // kg
+    speed: 0.0006,         // Velocidad reducida para mayor control
+    weight: 1200,
+    torque: 0.02           // Fuerza de las ruedas
   },
   
   truck: {
     name: "🚛 Camión Pesado",
     description: "Vehículo pesado de carga, lento pero resistente",
-    chassis: { width: 140, height: 45, density: 0.012 }, // Más pesado
+    chassis: { width: 140, height: 45, density: 0.008 },
     wheels: { radius: 25, density: 0.015, offsetY: 35 },
-    color: { chassis: "#F97316", wheels: "#1C1917" }, // Naranja industrial
+    color: { chassis: "#F97316", wheels: "#1C1917" },
     physics: {
-      friction: 0.9,
-      wheelFriction: 1.8,
+      friction: 1.0,
+      wheelFriction: 2.5,
       restitution: 0.02,
-      stiffness: 1.5
+      stiffness: 1.8,
+      damping: 0.4
     },
-    speed: 0.0005, // 37% más lento que el carro
-    weight: 8000 // kg
+    speed: 0.0004,
+    weight: 8000,
+    torque: 0.015
   },
   
   bus: {
@@ -59,15 +60,17 @@ const VEHICLE_CONFIGS = {
     description: "Vehículo largo para pasajeros",
     chassis: { width: 160, height: 50, density: 0.008 },
     wheels: { radius: 22, density: 0.010, offsetY: 30 },
-    color: { chassis: "#EAB308", wheels: "#27272A" }, // Amarillo escolar
+    color: { chassis: "#EAB308", wheels: "#27272A" },
     physics: {
       friction: 0.8,
       wheelFriction: 1.5,
       restitution: 0.05,
-      stiffness: 1.2
+      stiffness: 1.2,
+      damping: 0.3
     },
-    speed: 0.0006, // 25% más lento que el carro
-    weight: 5500 // kg
+    speed: 0.0006,
+    weight: 5500,
+    torque: 0.018
   },
   
   motorcycle: {
@@ -75,31 +78,35 @@ const VEHICLE_CONFIGS = {
     description: "Vehículo muy ligero y ágil",
     chassis: { width: 80, height: 20, density: 0.0008 },
     wheels: { radius: 15, density: 0.0015, offsetY: 18 },
-    color: { chassis: "#059669", wheels: "#1F2937" }, // Verde esmeralda
+    color: { chassis: "#059669", wheels: "#1F2937" },
     physics: {
       friction: 0.5,
       wheelFriction: 1.0,
       restitution: 0.15,
-      stiffness: 0.6
+      stiffness: 0.6,
+      damping: 0.2
     },
-    speed: 0.0011, // 37% más rápido que el carro
-    weight: 250 // kg
+    speed: 0.0011,
+    weight: 250,
+    torque: 0.025
   },
   
   tank: {
     name: "🚜 Tanque Militar",
     description: "Vehículo blindado super pesado",
-    chassis: { width: 120, height: 40, density: 0.008 }, // Reducida densidad para estabilidad
-    wheels: { radius: 20, density: 0.010, offsetY: 28 }, // Orugas menos pesadas
-    color: { chassis: "#4B5563", wheels: "#111827" }, // Gris militar
+    chassis: { width: 120, height: 40, density: 0.008 },
+    wheels: { radius: 20, density: 0.010, offsetY: 28 },
+    color: { chassis: "#4B5563", wheels: "#111827" },
     physics: {
       friction: 1.2,
       wheelFriction: 2.5,
-      restitution: 0.005, // Casi sin rebote para máxima estabilidad
-      stiffness: 1.0 // Suspensión más equilibrada
+      restitution: 0.005,
+      stiffness: 1.0,
+      damping: 0.5
     },
-    speed: 0.0004, // 50% más lento que el carro
-    weight: 15000 // kg
+    speed: 0.0004,
+    weight: 15000,
+    torque: 0.012
   },
   
   formula1: {
@@ -107,15 +114,17 @@ const VEHICLE_CONFIGS = {
     description: "Carro de carreras ultra rápido",
     chassis: { width: 110, height: 25, density: 0.0012 },
     wheels: { radius: 16, density: 0.002, offsetY: 20 },
-    color: { chassis: "#EF4444", wheels: "#0F172A" }, // Rojo Ferrari
+    color: { chassis: "#EF4444", wheels: "#0F172A" },
     physics: {
       friction: 0.3,
       wheelFriction: 0.8,
       restitution: 0.2,
-      stiffness: 0.4
+      stiffness: 0.4,
+      damping: 0.15
     },
-    speed: 0.0014, // 75% más rápido que el carro
-    weight: 800 // kg
+    speed: 0.0014,
+    weight: 800,
+    torque: 0.035
   },
   
   monster_truck: {
@@ -123,15 +132,17 @@ const VEHICLE_CONFIGS = {
     description: "Camioneta con ruedas gigantes",
     chassis: { width: 130, height: 35, density: 0.007 },
     wheels: { radius: 35, density: 0.012, offsetY: 45 },
-    color: { chassis: "#8B5CF6", wheels: "#1E1B4B" }, // Púrpura vibrante
+    color: { chassis: "#8B5CF6", wheels: "#1E1B4B" },
     physics: {
       friction: 0.8,
       wheelFriction: 1.6,
       restitution: 0.4,
-      stiffness: 1.0
+      stiffness: 1.0,
+      damping: 0.3
     },
-    speed: 0.0007, // 12% más lento que el carro
-    weight: 4500 // kg
+    speed: 0.0007,
+    weight: 4500,
+    torque: 0.022
   }
 };
 
@@ -163,29 +174,13 @@ export default function App() {
   // Configuraciones iniciales actualizadas
   const [settings, setSettings] = useState({
     gravity: 0.8,
-    vehicleType: 'car', // Tipo de vehículo por defecto
-    vehicleSpeed: 0.0008,
+    vehicleType: 'car',
+    vehicleSpeed: 0.0006,    // Velocidad reducida por defecto
     vehicleWeight: 1200,
-    stressThreshold: 0.7,
+    stressThreshold: 0.65,   // Umbral más realista
     showStress: true,
     autoBreak: true
   });
-
-  // Función para actualizar estadísticas
-  const updateStats = useCallback(() => {
-    setGameStats(prev => {
-      const cost = nodeBodies.length * 50 + beamConstraints.length * 100;
-      const avgStress = stressLevelsRef.current.reduce((a, b) => a + b, 0) /
-        (stressLevelsRef.current.length || 1);
-
-      return {
-        nodes: nodeBodies.length,
-        beams: beamConstraints.length,
-        cost,
-        stress: Math.round(avgStress * 100)
-      };
-    });
-  }, []);
 
   // Hooks personalizados
   const { engineRef, renderRef, initializeEngine, createTerrain } = usePhysicsEngine(settings);
@@ -204,7 +199,163 @@ export default function App() {
     controlNodePhysics,
     setNodeBodies,
     setBeamConstraints
-  } = useBridgeElements(engineRef, updateStats);
+  } = useBridgeElements(engineRef, () => updateStats());
+
+  // Función para actualizar estadísticas
+  const updateStats = useCallback(() => {
+    setGameStats(prev => {
+      const cost = nodeBodies.length * 50 + beamConstraints.length * 100;
+      const avgStress = stressLevelsRef.current.reduce((a, b) => a + b, 0) /
+        (stressLevelsRef.current.length || 1);
+
+      return {
+        nodes: nodeBodies.length,
+        beams: beamConstraints.length,
+        cost,
+        stress: Math.round(avgStress * 100)
+      };
+    });
+  }, [nodeBodies.length, beamConstraints.length, stressLevelsRef]);
+
+  // FUNCIÓN DE DETECCIÓN DE ESTRÉS MEJORADA - Definida una sola vez aquí
+  const detectAndBreakOverstressedBeams = useCallback(() => {
+    if (!beamConstraints.length) return;
+
+    const toRemove = [];
+    beamConstraints.forEach((beamSystem, i) => {
+      const meta = beamMetaRef.current[i];
+      if (!meta || !beamSystem.beamBody) return;
+
+      const node1 = nodeBodies[meta.startIdx];
+      const node2 = nodeBodies[meta.endIdx];
+      
+      if (!node1 || !node2) return;
+
+      // CÁLCULO DE ESTRÉS MEJORADO - Múltiples factores
+      const dx = node2.position.x - node1.position.x;
+      const dy = node2.position.y - node1.position.y;
+      const currentLength = Math.hypot(dx, dy);
+      const restLength = meta.originalLength;
+
+      // Estrés por deformación (estiramiento/compresión)
+      const deformationStress = Math.abs(currentLength - restLength) / restLength;
+      
+      // Estrés por velocidad de deformación
+      const velocityStress = Math.abs(beamSystem.beamBody.velocity.x + beamSystem.beamBody.velocity.y) * 0.01;
+      
+      // Estrés por rotación excesiva
+      const rotationStress = Math.abs(beamSystem.beamBody.angle) * 0.1;
+      
+      // Estrés combinado con pesos
+      const totalStress = (deformationStress * 0.7) + (velocityStress * 0.2) + (rotationStress * 0.1);
+
+      stressLevelsRef.current[i] = totalStress;
+
+      // VISUALIZACIÓN DE ESTRÉS MEJORADA con gradientes más suaves
+      if (beamSystem.beamBody && beamSystem.beamBody.render) {
+        let color;
+        if (totalStress > 0.8) {
+          color = "#DC2626"; // Rojo crítico
+        } else if (totalStress > 0.6) {
+          color = "#EA580C"; // Naranja alto
+        } else if (totalStress > 0.4) {
+          color = "#F59E0B"; // Amarillo medio
+        } else if (totalStress > 0.2) {
+          color = "#84CC16"; // Verde-amarillo bajo
+        } else {
+          color = "#10B981"; // Verde seguro
+        }
+        
+        beamSystem.beamBody.render.fillStyle = color;
+        beamSystem.beamBody.render.strokeStyle = color.replace('6', '8');
+        
+        // Grosor visual basado en estrés
+        beamSystem.beamBody.render.lineWidth = 2 + totalStress * 2;
+      }
+
+      // UMBRAL DE ROTURA AJUSTADO para mayor realismo
+      const adjustedThreshold = settings.stressThreshold * (1 + Math.random() * 0.2);
+      
+      if (totalStress > adjustedThreshold) {
+        toRemove.push(i);
+      }
+    });
+
+    // ROTURA DE VIGAS con efectos mejorados
+    if (toRemove.length > 0) {
+      const integrityLoss = toRemove.length * (15 + Math.random() * 10);
+      setBridgeIntegrity(prev => Math.max(0, prev - integrityLoss));
+
+      toRemove.sort((a, b) => b - a).forEach(idx => {
+        const beamSystem = beamConstraints[idx];
+        
+        // Remover todos los componentes del sistema de viga mejorado
+        World.remove(engineRef.current.world, [
+          beamSystem.beamBody,
+          beamSystem.constraint1,
+          beamSystem.constraint2,
+          ...(beamSystem.stabilizer1 ? [beamSystem.stabilizer1] : []),
+          ...(beamSystem.stabilizer2 ? [beamSystem.stabilizer2] : [])
+        ]);
+        
+        beamConstraints.splice(idx, 1);
+        beamMetaRef.current.splice(idx, 1);
+        stressLevelsRef.current.splice(idx, 1);
+      });
+
+      setBeamConstraints([...beamConstraints]);
+      
+      // Si se rompieron muchas vigas, considerar fallo inmediato
+      if (toRemove.length >= 3) {
+        setBridgeIntegrity(prev => Math.max(0, prev - 30));
+        if (bridgeIntegrity <= 20) {
+          setGameStatus("failed");
+          setIsSimulating(false);
+        }
+      }
+    }
+  }, [beamConstraints, settings.stressThreshold, nodeBodies, bridgeIntegrity, engineRef]);
+
+  // FUNCIÓN DE VISUALIZACIÓN DE ESTRÉS MEJORADA
+  const updateStressVisualization = useCallback(() => {
+    if (!settings.showStress) {
+      // Si no se muestra estrés, usar color neutro
+      beamConstraints.forEach((beamSystem) => {
+        if (beamSystem.beamBody && beamSystem.beamBody.render) {
+          beamSystem.beamBody.render.fillStyle = "#374151";
+          beamSystem.beamBody.render.strokeStyle = "#1F2937";
+          beamSystem.beamBody.render.lineWidth = 3;
+        }
+      });
+      return;
+    }
+
+    beamConstraints.forEach((beamSystem, i) => {
+      const stressLevel = stressLevelsRef.current[i] || 0;
+      if (beamSystem.beamBody && beamSystem.beamBody.render) {
+        // Mapeo de colores más detallado
+        let color, strokeColor;
+        
+        if (stressLevel > 0.9) {
+          color = "#B91C1C"; strokeColor = "#7F1D1D";
+        } else if (stressLevel > 0.7) {
+          color = "#DC2626"; strokeColor = "#991B1B";
+        } else if (stressLevel > 0.5) {
+          color = "#EA580C"; strokeColor = "#C2410C";
+        } else if (stressLevel > 0.3) {
+          color = "#F59E0B"; strokeColor = "#D97706";
+        } else if (stressLevel > 0.1) {
+          color = "#84CC16"; strokeColor = "#65A30D";
+        } else {
+          color = "#10B981"; strokeColor = "#059669";
+        }
+        
+        beamSystem.beamBody.render.fillStyle = color;
+        beamSystem.beamBody.render.strokeStyle = strokeColor;
+        beamSystem.beamBody.render.lineWidth = Math.max(2, 2 + stressLevel * 3);
+      }
+    });
+  }, [beamConstraints, settings.showStress, stressLevelsRef]);
 
   // Inicialización del motor de física
   useEffect(() => {
@@ -284,243 +435,207 @@ export default function App() {
     }
   }, [tool, selectedNodeIdx, isSimulating, getMousePos, nodeBodies, addNode, removeElement, addBeam, applyLoadToNode]);
 
-  // 3. Actualizar la función spawnVehicle para configurar colisiones:
-const spawnVehicle = useCallback(() => {
-  if (!engineRef.current) return;
+  // FUNCIÓN DE SPAWN DE VEHÍCULO MEJORADA
+  const spawnVehicle = useCallback(() => {
+    if (!engineRef.current) return;
 
-  // Remover vehículo anterior si existe
-  if (vehicle?.parts) {
-    Object.values(vehicle.parts).forEach(part => {
-      if (part.type === 'body' || part.type === 'constraint') {
-        World.remove(engineRef.current.world, part);
+    // Remover vehículo anterior si existe
+    if (vehicle?.parts) {
+      Object.values(vehicle.parts).forEach(part => {
+        if (part.type === 'body' || part.type === 'constraint') {
+          World.remove(engineRef.current.world, part);
+        }
+      });
+    }
+
+    const config = VEHICLE_CONFIGS[settings.vehicleType || 'car'];
+    const startX = 150; // Posición en el centro de la plataforma izquierda
+    const startY = CANVAS_HEIGHT - 200; // Altura adecuada sobre la plataforma
+
+    // CHASIS MEJORADO con mejor estabilidad
+    const chassis = Bodies.rectangle(
+      startX,
+      startY,
+      config.chassis.width,
+      config.chassis.height,
+      {
+        density: config.chassis.density,
+        friction: config.physics.friction,
+        frictionAir: 0.01,
+        restitution: config.physics.restitution,
+        render: {
+          fillStyle: config.color.chassis,
+          strokeStyle: config.color.chassis.replace('4', '8'),
+          lineWidth: 2
+        },
+        collisionFilter: {
+          category: 0x0001,
+          mask: 0x0002 | 0x0008 | 0x0004
+        }
       }
-    });
-  }
+    );
 
-  // Obtener configuración del vehículo actual
-  const config = VEHICLE_CONFIGS[settings.vehicleType || 'car'];
+    const wheelOffsetX = config.chassis.width * 0.35;
 
-  const startX = 100;
-  const startY = CANVAS_HEIGHT - 200;
-
-  // Crear chasis con filtros de colisión
-  const chassis = Bodies.rectangle(
-    startX,
-    startY,
-    config.chassis.width,
-    config.chassis.height,
-    {
-      density: config.chassis.density,
-      friction: config.physics.friction,
-      render: {
-        fillStyle: config.color.chassis,
-        strokeStyle: config.color.chassis.replace('4', '8'),
-        lineWidth: 2
-      },
-      collisionFilter: {
-        category: 0x0001, // Categoría de vehículos
-        mask: 0x0002 | 0x0008 | 0x0004 // Colisiona con vigas, terreno y nodos
+    // RUEDAS MEJORADAS con mejor tracción
+    const wheelA = Bodies.circle(
+      startX - wheelOffsetX,
+      startY + config.wheels.offsetY,
+      config.wheels.radius,
+      {
+        density: config.wheels.density,
+        friction: config.physics.wheelFriction,
+        frictionAir: 0.005,
+        restitution: config.physics.restitution,
+        render: {
+          fillStyle: config.color.wheels,
+          strokeStyle: config.color.wheels.replace('4', '8'),
+          lineWidth: 2
+        },
+        collisionFilter: {
+          category: 0x0001,
+          mask: 0x0002 | 0x0008 | 0x0004
+        }
       }
-    }
-  );
+    );
 
-  // Calcular posiciones de las ruedas
-  const wheelOffsetX = config.chassis.width * 0.35;
-
-  // Rueda trasera con filtros de colisión
-  const wheelA = Bodies.circle(
-    startX - wheelOffsetX,
-    startY + config.wheels.offsetY,
-    config.wheels.radius,
-    {
-      density: config.wheels.density,
-      friction: config.physics.wheelFriction,
-      restitution: config.physics.restitution,
-      render: {
-        fillStyle: config.color.wheels,
-        strokeStyle: config.color.wheels.replace('4', '8'),
-        lineWidth: 2
-      },
-      collisionFilter: {
-        category: 0x0001, // Categoría de vehículos
-        mask: 0x0002 | 0x0008 | 0x0004 // Colisiona con vigas, terreno y nodos
+    const wheelB = Bodies.circle(
+      startX + wheelOffsetX,
+      startY + config.wheels.offsetY,
+      config.wheels.radius,
+      {
+        density: config.wheels.density,
+        friction: config.physics.wheelFriction,
+        frictionAir: 0.005,
+        restitution: config.physics.restitution,
+        render: {
+          fillStyle: config.color.wheels,
+          strokeStyle: config.color.wheels.replace('4', '8'),
+          lineWidth: 2
+        },
+        collisionFilter: {
+          category: 0x0001,
+          mask: 0x0002 | 0x0008 | 0x0004
+        }
       }
-    }
-  );
+    );
 
-  // Rueda delantera con filtros de colisión
-  const wheelB = Bodies.circle(
-    startX + wheelOffsetX,
-    startY + config.wheels.offsetY,
-    config.wheels.radius,
-    {
-      density: config.wheels.density,
-      friction: config.physics.wheelFriction,
-      restitution: config.physics.restitution,
-      render: {
-        fillStyle: config.color.wheels,
-        strokeStyle: config.color.wheels.replace('4', '8'),
-        lineWidth: 2
-      },
-      collisionFilter: {
-        category: 0x0001, // Categoría de vehículos
-        mask: 0x0002 | 0x0008 | 0x0004 // Colisiona con vigas, terreno y nodos
-      }
-    }
-  );
-
-  // Resto del código de suspensión igual...
-  const axleA = Constraint.create({
-    bodyA: chassis,
-    pointA: { x: -wheelOffsetX, y: config.chassis.height / 2 },
-    bodyB: wheelA,
-    stiffness: config.physics.stiffness,
-    length: config.wheels.offsetY - config.chassis.height / 2,
-    damping: 0.1,
-    render: { visible: false }
-  });
-
-  const axleB = Constraint.create({
-    bodyA: chassis,
-    pointA: { x: wheelOffsetX, y: config.chassis.height / 2 },
-    bodyB: wheelB,
-    stiffness: config.physics.stiffness,
-    length: config.wheels.offsetY - config.chassis.height / 2,
-    damping: 0.1,
-    render: { visible: false }
-  });
-
-  // Agregar elementos al mundo
-  World.add(engineRef.current.world, [chassis, wheelA, wheelB, axleA, axleB]);
-
-  const newVehicle = {
-    parts: { chassis, wheelA, wheelB, axleA, axleB },
-    config: config,
-    startTime: Date.now()
-  };
-
-  setVehicle(newVehicle);
-  setVehicleProgress(0);
-  setGameStatus("testing");
-
-  setSettings(prev => ({
-    ...prev,
-    vehicleSpeed: config.speed,
-    vehicleWeight: config.weight
-  }));
-
-  return newVehicle;
-}, [vehicle, settings.vehicleType]);
-
-  // Detección de estrés
-  const detectAndBreakOverstressedBeams = useCallback(() => {
-  if (!beamConstraints.length) return;
-
-  const toRemove = [];
-  beamConstraints.forEach((beamSystem, i) => {
-    const meta = beamMetaRef.current[i];
-    if (!meta || !beamSystem.beamBody) return;
-
-    const node1 = nodeBodies[meta.startIdx];
-    const node2 = nodeBodies[meta.endIdx];
-    
-    if (!node1 || !node2) return;
-
-    // Calcular estrés basado en la distancia entre nodos
-    const dx = node2.position.x - node1.position.x;
-    const dy = node2.position.y - node1.position.y;
-    const currentLength = Math.hypot(dx, dy);
-    const restLength = meta.originalLength;
-
-    const deformation = Math.abs(currentLength - restLength);
-    const stress = deformation / restLength;
-
-    stressLevelsRef.current[i] = stress;
-
-    // Actualizar color de la viga según el estrés
-    if (beamSystem.beamBody && beamSystem.beamBody.render) {
-      beamSystem.beamBody.render.fillStyle = stress > 0.7 ? "#EF4444" :
-        stress > 0.4 ? "#F59E0B" : "#374151";
-    }
-
-    if (stress > settings.stressThreshold) {
-      toRemove.push(i);
-    }
-  });
-
-  if (toRemove.length > 0) {
-    setBridgeIntegrity(prev => Math.max(0, prev - toRemove.length * 20));
-
-    toRemove.sort((a, b) => b - a).forEach(idx => {
-      const beamSystem = beamConstraints[idx];
-      
-      // Remover todos los componentes del sistema de viga
-      World.remove(engineRef.current.world, [
-        beamSystem.beamBody,
-        beamSystem.constraint1,
-        beamSystem.constraint2
-      ]);
-      
-      beamConstraints.splice(idx, 1);
-      beamMetaRef.current.splice(idx, 1);
-      stressLevelsRef.current.splice(idx, 1);
+    // SUSPENSIÓN MEJORADA para absorber impactos sin empujar el puente
+    const axleA = Constraint.create({
+      bodyA: chassis,
+      pointA: { x: -wheelOffsetX, y: config.chassis.height / 2 },
+      bodyB: wheelA,
+      stiffness: config.physics.stiffness,
+      damping: config.physics.damping,
+      length: config.wheels.offsetY - config.chassis.height / 2,
+      render: { visible: false }
     });
 
-    setBeamConstraints([...beamConstraints]);
-  }
-}, [beamConstraints, settings.stressThreshold, nodeBodies]);
+    const axleB = Constraint.create({
+      bodyA: chassis,
+      pointA: { x: wheelOffsetX, y: config.chassis.height / 2 },
+      bodyB: wheelB,
+      stiffness: config.physics.stiffness,
+      damping: config.physics.damping,
+      length: config.wheels.offsetY - config.chassis.height / 2,
+      render: { visible: false }
+    });
 
-  // Visualización de estrés
-const updateStressVisualization = useCallback(() => {
-  if (!settings.showStress) return;
+    // ESTABILIZADORES ADICIONALES para evitar volcaduras
+    const stabilizerA = Constraint.create({
+      bodyA: chassis,
+      pointA: { x: -wheelOffsetX * 0.5, y: -config.chassis.height / 3 },
+      bodyB: wheelA,
+      stiffness: config.physics.stiffness * 0.5,
+      damping: config.physics.damping * 1.5,
+      length: config.wheels.offsetY * 0.8,
+      render: { visible: false }
+    });
 
-  beamConstraints.forEach((beamSystem, i) => {
-    const stressLevel = stressLevelsRef.current[i] || 0;
-    if (beamSystem.beamBody && beamSystem.beamBody.render) {
-      const color = stressLevel > 0.7 ? "#EF4444" :
-        stressLevel > 0.4 ? "#F59E0B" : "#374151";
-      beamSystem.beamBody.render.fillStyle = color;
-      
-      // Opcional: cambiar grosor basado en estrés
-      // beamSystem.beamBody.render.lineWidth = 2 + stressLevel * 3;
-    }
-  });
-}, [beamConstraints, settings.showStress]);
+    const stabilizerB = Constraint.create({
+      bodyA: chassis,
+      pointA: { x: wheelOffsetX * 0.5, y: -config.chassis.height / 3 },
+      bodyB: wheelB,
+      stiffness: config.physics.stiffness * 0.5,
+      damping: config.physics.damping * 1.5,
+      length: config.wheels.offsetY * 0.8,
+      render: { visible: false }
+    });
 
-  // Simulación del vehículo simplificada - movimiento lineal
-  // Simulación del vehículo actualizada - dentro del useEffect
-  // Simulación del vehículo - ARREGLADA (mantiene movimiento original)
+    // Agregar elementos al mundo
+    World.add(engineRef.current.world, [
+      chassis, wheelA, wheelB, 
+      axleA, axleB, 
+      stabilizerA, stabilizerB
+    ]);
+
+    const newVehicle = {
+      parts: { 
+        chassis, wheelA, wheelB, 
+        axleA, axleB, 
+        stabilizerA, stabilizerB 
+      },
+      config: config,
+      startTime: Date.now()
+    };
+
+    setVehicle(newVehicle);
+    setVehicleProgress(0);
+    setGameStatus("testing");
+
+    setSettings(prev => ({
+      ...prev,
+      vehicleSpeed: config.speed,
+      vehicleWeight: config.weight
+    }));
+
+    return newVehicle;
+  }, [vehicle, settings.vehicleType, engineRef]);
+
+  // SISTEMA DE MOVIMIENTO MEJORADO - Sin empujar el puente
   useEffect(() => {
     if (!isSimulating || !vehicle?.parts) return;
 
     const interval = setInterval(() => {
       try {
-        const { chassis } = vehicle.parts;
+        const { chassis, wheelA, wheelB } = vehicle.parts;
 
-        // Usar la velocidad específica del vehículo actual (sistema original)
-        const moveSpeed = vehicle.config ?
-          vehicle.config.speed * 10000 : // Usar velocidad del vehículo
-          settings.vehicleSpeed * 10000;  // Fallback a configuración general
+        // SISTEMA DE PROPULSIÓN MEJORADO - Aplicar torque en lugar de velocidad directa
+        const config = vehicle.config;
+        const torqueForce = config.torque || 0.02;
+        
+        // Aplicar torque a las ruedas para movimiento más realista
+        Body.setAngularVelocity(wheelA, Math.min(wheelA.angularVelocity + torqueForce, 0.3));
+        Body.setAngularVelocity(wheelB, Math.min(wheelB.angularVelocity + torqueForce, 0.3));
+        
+        // Fuerza horizontal suave basada en la fricción de las ruedas
+        const horizontalForce = config.speed * 1000;
+        
+        // Aplicar fuerza solo si el vehículo no está en el aire
+        if (chassis.position.y > CANVAS_HEIGHT - 300) {
+          Body.applyForce(chassis, chassis.position, { x: horizontalForce, y: 0 });
+        }
+        
+        // ESTABILIZACIÓN ACTIVA - Evitar que el vehículo se vuelque
+        if (Math.abs(chassis.angle) > 0.3) {
+          const correctionTorque = -chassis.angle * 0.01;
+          Body.setAngularVelocity(chassis, chassis.angularVelocity + correctionTorque);
+        }
 
-        // MANTENER EL SISTEMA ORIGINAL - Establecer velocidad constante horizontal
-        Body.setVelocity(chassis, {
-          x: moveSpeed,
-          y: Math.max(chassis.velocity.y, -5) // Limitar caída libre
-        });
-
-        // MANTENER EL SISTEMA ORIGINAL - Mover las ruedas junto con el chasis
-        const { wheelA, wheelB } = vehicle.parts;
-        Body.setVelocity(wheelA, {
-          x: moveSpeed,
-          y: Math.max(wheelA.velocity.y, -5)
-        });
-        Body.setVelocity(wheelB, {
-          x: moveSpeed,
-          y: Math.max(wheelB.velocity.y, -5)
-        });
+        // LIMITACIÓN DE VELOCIDAD para evitar empujar elementos
+        const maxVelocity = 8;
+        if (chassis.velocity.x > maxVelocity) {
+          Body.setVelocity(chassis, { x: maxVelocity, y: chassis.velocity.y });
+        }
+        if (wheelA.velocity.x > maxVelocity) {
+          Body.setVelocity(wheelA, { x: maxVelocity, y: wheelA.velocity.y });
+        }
+        if (wheelB.velocity.x > maxVelocity) {
+          Body.setVelocity(wheelB, { x: maxVelocity, y: wheelB.velocity.y });
+        }
 
         // Calcular progreso
-        const progress = Math.min((chassis.position.x - 100) / (CANVAS_WIDTH - 200) * 100, 100);
+        const progress = Math.min((chassis.position.x - 150) / (CANVAS_WIDTH - 300) * 100, 100);
         setVehicleProgress(progress);
 
         // Verificar condiciones de éxito/fallo
@@ -529,7 +644,8 @@ const updateStressVisualization = useCallback(() => {
           setIsSimulating(false);
         }
 
-        if (chassis.position.y > CANVAS_HEIGHT - 100) {
+        // Verificar si cayó al agua (más margen)
+        if (chassis.position.y > CANVAS_HEIGHT - 120) {
           setGameStatus("failed");
           setIsSimulating(false);
         }
