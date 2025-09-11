@@ -32,6 +32,10 @@ const useBridgeElements = (engineRef, updateStats) => {
         strokeStyle: "#1F2937",
         lineWidth: 2
       },
+      collisionFilter: {
+        category: 0x0004, // Categoría de nodos
+        mask: 0x0001 // Solo colisiona con vehículos si es necesario
+      },
       isSupport,
       isLoad
     });
@@ -60,34 +64,96 @@ const useBridgeElements = (engineRef, updateStats) => {
 
     const bodyA = nodeBodies[startIdx];
     const bodyB = nodeBodies[endIdx];
-    const len = Math.hypot(bodyB.position.x - bodyA.position.x, bodyB.position.y - bodyA.position.y);
+    
+    // Verificar si ya existe una viga entre estos nodos
+    const exists = beamMetaRef.current.some(beam =>
+      (beam.startIdx === startIdx && beam.endIdx === endIdx) ||
+      (beam.startIdx === endIdx && beam.endIdx === startIdx)
+    );
+    
+    if (exists) return;
 
-    const constraint = Constraint.create({
-      bodyA,
-      bodyB,
-      length: len,
-      stiffness: 0.9,
-      render: { 
-        strokeStyle: "#374151",
-        lineWidth: 8,
-        type: "line"
-      },
+    const len = Math.hypot(bodyB.position.x - bodyA.position.x, bodyB.position.y - bodyA.position.y);
+    
+    // Calcular posición y ángulo de la viga
+    const centerX = (bodyA.position.x + bodyB.position.x) / 2;
+    const centerY = (bodyA.position.y + bodyB.position.y) / 2;
+    const angle = Math.atan2(bodyB.position.y - bodyA.position.y, bodyB.position.x - bodyA.position.x);
+
+    // CREAR VIGA COMO CUERPO FÍSICO SÓLIDO
+    const beamBody = Bodies.rectangle(
+      centerX,
+      centerY,
+      len, // longitud
+      8,   // grosor
+      {
+        angle: angle,
+        isStatic: false, // Dinámico para responder a fuerzas
+        density: 0.001,
+        friction: 0.8,
+        restitution: 0.1,
+        render: {
+          fillStyle: "#374151",
+          strokeStyle: "#1F2937",
+          lineWidth: 2
+        },
+        collisionFilter: {
+          category: 0x0002, // Categoría de vigas
+          mask: 0x0001 | 0x0008 // Colisiona con vehículos y terreno
+        }
+      }
+    );
+
+    // CONECTAR LA VIGA A LOS NODOS CON CONSTRAINTS INVISIBLES
+    // Constraint desde nodo A al extremo izquierdo de la viga
+    const constraint1 = Constraint.create({
+      bodyA: bodyA,
+      bodyB: beamBody,
+      pointB: { x: -len/2, y: 0 }, // Extremo izquierdo de la viga
+      stiffness: 0.95,
+      damping: 0.1,
+      render: { visible: false }
     });
 
-    World.add(engineRef.current.world, constraint);
+    // Constraint desde nodo B al extremo derecho de la viga
+    const constraint2 = Constraint.create({
+      bodyA: bodyB,
+      bodyB: beamBody,
+      pointB: { x: len/2, y: 0 }, // Extremo derecho de la viga
+      stiffness: 0.95,
+      damping: 0.1,
+      render: { visible: false }
+    });
+
+    // Agregar todo al mundo
+    World.add(engineRef.current.world, [beamBody, constraint1, constraint2]);
+
+    // Crear el objeto combinado que reemplaza al constraint simple
+    const beamSystem = {
+      beamBody: beamBody,
+      constraint1: constraint1,
+      constraint2: constraint2,
+      length: len,
+      // Mantener propiedades compatibles con código existente
+      bodyA: bodyA,
+      bodyB: bodyB,
+      render: beamBody.render
+    };
 
     const id = beamMetaRef.current.length;
     beamMetaRef.current.push({ 
       id, 
       start: nodeMetaRef.current[startIdx]?.id, 
-      end: nodeMetaRef.current[endIdx]?.id, 
+      end: nodeMetaRef.current[endIdx]?.id,
+      startIdx: startIdx, // Agregar índices para facilitar búsquedas
+      endIdx: endIdx,
       area, 
       yield: yieldStrength,
       originalLength: len,
-      constraint
+      constraint: beamSystem // Usar el sistema completo
     });
     
-    setBeamConstraints(prev => [...prev, constraint]);
+    setBeamConstraints(prev => [...prev, beamSystem]);
     stressLevelsRef.current.push(0);
     
     updateStats();
@@ -95,6 +161,7 @@ const useBridgeElements = (engineRef, updateStats) => {
   }, [nodeBodies, engineRef, updateStats]);
 
   const removeElement = useCallback((x, y) => {
+    // Buscar nodo primero
     const nodeIdx = nodeBodies.findIndex(b => 
       Math.hypot(b.position.x - x, b.position.y - y) < 20
     );
@@ -102,25 +169,68 @@ const useBridgeElements = (engineRef, updateStats) => {
     if (nodeIdx >= 0) {
       const body = nodeBodies[nodeIdx];
       
-      const connectedConstraints = beamConstraints.filter(c => 
-        c.bodyA === body || c.bodyB === body
-      );
-      
-      connectedConstraints.forEach(constraint => {
-        const constraintIdx = beamConstraints.indexOf(constraint);
-        if (constraintIdx >= 0) {
-          World.remove(engineRef.current.world, constraint);
-          beamConstraints.splice(constraintIdx, 1);
-          beamMetaRef.current.splice(constraintIdx, 1);
-          stressLevelsRef.current.splice(constraintIdx, 1);
+      // Buscar vigas conectadas a este nodo
+      const connectedConstraints = [];
+      beamConstraints.forEach((beamSystem, i) => {
+        if (beamSystem.bodyA === body || beamSystem.bodyB === body) {
+          connectedConstraints.push(i);
         }
       });
+      
+      // Remover vigas de atrás hacia adelante para no afectar índices
+      connectedConstraints.reverse().forEach(constraintIdx => {
+        const beamSystem = beamConstraints[constraintIdx];
+        
+        // Remover todos los componentes del sistema de viga
+        World.remove(engineRef.current.world, [
+          beamSystem.beamBody,
+          beamSystem.constraint1,
+          beamSystem.constraint2
+        ]);
+        
+        beamConstraints.splice(constraintIdx, 1);
+        beamMetaRef.current.splice(constraintIdx, 1);
+        stressLevelsRef.current.splice(constraintIdx, 1);
+      });
 
+      // Remover el nodo
       World.remove(engineRef.current.world, body);
       nodeBodies.splice(nodeIdx, 1);
       nodeMetaRef.current.splice(nodeIdx, 1);
       
       setNodeBodies([...nodeBodies]);
+      setBeamConstraints([...beamConstraints]);
+      updateStats();
+      return;
+    }
+
+    // Si no se encontró un nodo, buscar viga para eliminar
+    const beamIdx = beamConstraints.findIndex(beamSystem => {
+      const beamBody = beamSystem.beamBody;
+      if (!beamBody) return false;
+      
+      // Verificar si el click está sobre la viga
+      const dx = x - beamBody.position.x;
+      const dy = y - beamBody.position.y;
+      const distance = Math.hypot(dx, dy);
+      
+      return distance < 20; // Área de click para vigas
+    });
+
+    if (beamIdx >= 0) {
+      const beamSystem = beamConstraints[beamIdx];
+      
+      // Remover todos los componentes del sistema de viga
+      World.remove(engineRef.current.world, [
+        beamSystem.beamBody,
+        beamSystem.constraint1,
+        beamSystem.constraint2
+      ]);
+      
+      beamConstraints.splice(beamIdx, 1);
+      beamMetaRef.current.splice(beamIdx, 1);
+      stressLevelsRef.current.splice(beamIdx, 1);
+
       setBeamConstraints([...beamConstraints]);
       updateStats();
     }
@@ -165,7 +275,22 @@ const useBridgeElements = (engineRef, updateStats) => {
         }
       }
     });
-  }, [nodeBodies]);
+
+    // NUEVO: Controlar física de las vigas también
+    beamConstraints.forEach(beamSystem => {
+      if (beamSystem.beamBody) {
+        if (makeStatic) {
+          // Al parar simulación, las vigas se vuelven más rígidas
+          Body.setStatic(beamSystem.beamBody, false); // Mantener dinámicas pero estables
+          Body.setVelocity(beamSystem.beamBody, { x: 0, y: 0 });
+          Body.setAngularVelocity(beamSystem.beamBody, 0);
+        } else {
+          // Durante simulación, las vigas responden normalmente
+          Body.setStatic(beamSystem.beamBody, false);
+        }
+      }
+    });
+  }, [nodeBodies, beamConstraints]);
 
   return {
     nodeBodies,

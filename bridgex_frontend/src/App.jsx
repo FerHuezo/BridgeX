@@ -136,7 +136,7 @@ const VEHICLE_CONFIGS = {
 };
 
 // Configuración global
-const CANVAS_WIDTH = 1200;
+const CANVAS_WIDTH = 1400;
 const CANVAS_HEIGHT = 700;
 
 export default function App() {
@@ -284,7 +284,7 @@ export default function App() {
     }
   }, [tool, selectedNodeIdx, isSimulating, getMousePos, nodeBodies, addNode, removeElement, addBeam, applyLoadToNode]);
 
-  // Crear vehículo
+  // 3. Actualizar la función spawnVehicle para configurar colisiones:
 const spawnVehicle = useCallback(() => {
   if (!engineRef.current) return;
 
@@ -303,7 +303,7 @@ const spawnVehicle = useCallback(() => {
   const startX = 100;
   const startY = CANVAS_HEIGHT - 200;
 
-  // Crear chasis con dimensiones y propiedades específicas
+  // Crear chasis con filtros de colisión
   const chassis = Bodies.rectangle(
     startX,
     startY,
@@ -316,14 +316,18 @@ const spawnVehicle = useCallback(() => {
         fillStyle: config.color.chassis,
         strokeStyle: config.color.chassis.replace('4', '8'),
         lineWidth: 2
+      },
+      collisionFilter: {
+        category: 0x0001, // Categoría de vehículos
+        mask: 0x0002 | 0x0008 | 0x0004 // Colisiona con vigas, terreno y nodos
       }
     }
   );
 
-  // Calcular posiciones de las ruedas basadas en el tamaño del chasis
+  // Calcular posiciones de las ruedas
   const wheelOffsetX = config.chassis.width * 0.35;
 
-  // Rueda trasera
+  // Rueda trasera con filtros de colisión
   const wheelA = Bodies.circle(
     startX - wheelOffsetX,
     startY + config.wheels.offsetY,
@@ -336,11 +340,15 @@ const spawnVehicle = useCallback(() => {
         fillStyle: config.color.wheels,
         strokeStyle: config.color.wheels.replace('4', '8'),
         lineWidth: 2
+      },
+      collisionFilter: {
+        category: 0x0001, // Categoría de vehículos
+        mask: 0x0002 | 0x0008 | 0x0004 // Colisiona con vigas, terreno y nodos
       }
     }
   );
 
-  // Rueda delantera
+  // Rueda delantera con filtros de colisión
   const wheelB = Bodies.circle(
     startX + wheelOffsetX,
     startY + config.wheels.offsetY,
@@ -353,36 +361,38 @@ const spawnVehicle = useCallback(() => {
         fillStyle: config.color.wheels,
         strokeStyle: config.color.wheels.replace('4', '8'),
         lineWidth: 2
+      },
+      collisionFilter: {
+        category: 0x0001, // Categoría de vehículos
+        mask: 0x0002 | 0x0008 | 0x0004 // Colisiona con vigas, terreno y nodos
       }
     }
   );
 
-  // Suspensión trasera - MEJORADA para estabilidad
+  // Resto del código de suspensión igual...
   const axleA = Constraint.create({
     bodyA: chassis,
     pointA: { x: -wheelOffsetX, y: config.chassis.height / 2 },
     bodyB: wheelA,
     stiffness: config.physics.stiffness,
     length: config.wheels.offsetY - config.chassis.height / 2,
-    damping: 0.1, // Agregar amortiguación para reducir vibración
+    damping: 0.1,
     render: { visible: false }
   });
 
-  // Suspensión delantera - MEJORADA para estabilidad
   const axleB = Constraint.create({
     bodyA: chassis,
     pointA: { x: wheelOffsetX, y: config.chassis.height / 2 },
     bodyB: wheelB,
     stiffness: config.physics.stiffness,
     length: config.wheels.offsetY - config.chassis.height / 2,
-    damping: 0.1, // Agregar amortiguación para reducir vibración
+    damping: 0.1,
     render: { visible: false }
   });
 
   // Agregar elementos al mundo
   World.add(engineRef.current.world, [chassis, wheelA, wheelB, axleA, axleB]);
 
-  // Crear objeto vehículo
   const newVehicle = {
     parts: { chassis, wheelA, wheelB, axleA, axleB },
     config: config,
@@ -393,7 +403,6 @@ const spawnVehicle = useCallback(() => {
   setVehicleProgress(0);
   setGameStatus("testing");
 
-  // Actualizar velocidad del vehículo en settings
   setSettings(prev => ({
     ...prev,
     vehicleSpeed: config.speed,
@@ -405,55 +414,78 @@ const spawnVehicle = useCallback(() => {
 
   // Detección de estrés
   const detectAndBreakOverstressedBeams = useCallback(() => {
-    if (!beamConstraints.length) return;
+  if (!beamConstraints.length) return;
 
-    const toRemove = [];
-    beamConstraints.forEach((constraint, i) => {
-      const meta = beamMetaRef.current[i];
-      if (!meta || !constraint.bodyA || !constraint.bodyB) return;
+  const toRemove = [];
+  beamConstraints.forEach((beamSystem, i) => {
+    const meta = beamMetaRef.current[i];
+    if (!meta || !beamSystem.beamBody) return;
 
-      const dx = constraint.bodyB.position.x - constraint.bodyA.position.x;
-      const dy = constraint.bodyB.position.y - constraint.bodyA.position.y;
-      const currentLength = Math.hypot(dx, dy);
-      const restLength = constraint.length || meta.originalLength;
+    const node1 = nodeBodies[meta.startIdx];
+    const node2 = nodeBodies[meta.endIdx];
+    
+    if (!node1 || !node2) return;
 
-      const deformation = Math.abs(currentLength - restLength);
-      const stress = deformation / restLength;
+    // Calcular estrés basado en la distancia entre nodos
+    const dx = node2.position.x - node1.position.x;
+    const dy = node2.position.y - node1.position.y;
+    const currentLength = Math.hypot(dx, dy);
+    const restLength = meta.originalLength;
 
-      stressLevelsRef.current[i] = stress;
+    const deformation = Math.abs(currentLength - restLength);
+    const stress = deformation / restLength;
 
-      if (stress > settings.stressThreshold) {
-        toRemove.push(i);
-      }
+    stressLevelsRef.current[i] = stress;
+
+    // Actualizar color de la viga según el estrés
+    if (beamSystem.beamBody && beamSystem.beamBody.render) {
+      beamSystem.beamBody.render.fillStyle = stress > 0.7 ? "#EF4444" :
+        stress > 0.4 ? "#F59E0B" : "#374151";
+    }
+
+    if (stress > settings.stressThreshold) {
+      toRemove.push(i);
+    }
+  });
+
+  if (toRemove.length > 0) {
+    setBridgeIntegrity(prev => Math.max(0, prev - toRemove.length * 20));
+
+    toRemove.sort((a, b) => b - a).forEach(idx => {
+      const beamSystem = beamConstraints[idx];
+      
+      // Remover todos los componentes del sistema de viga
+      World.remove(engineRef.current.world, [
+        beamSystem.beamBody,
+        beamSystem.constraint1,
+        beamSystem.constraint2
+      ]);
+      
+      beamConstraints.splice(idx, 1);
+      beamMetaRef.current.splice(idx, 1);
+      stressLevelsRef.current.splice(idx, 1);
     });
 
-    if (toRemove.length > 0) {
-      setBridgeIntegrity(prev => Math.max(0, prev - toRemove.length * 20));
-
-      toRemove.sort((a, b) => b - a).forEach(idx => {
-        const constraint = beamConstraints[idx];
-        World.remove(engineRef.current.world, constraint);
-        beamConstraints.splice(idx, 1);
-        beamMetaRef.current.splice(idx, 1);
-        stressLevelsRef.current.splice(idx, 1);
-      });
-
-      setBeamConstraints([...beamConstraints]);
-    }
-  }, [beamConstraints, settings.stressThreshold]);
+    setBeamConstraints([...beamConstraints]);
+  }
+}, [beamConstraints, settings.stressThreshold, nodeBodies]);
 
   // Visualización de estrés
-  const updateStressVisualization = useCallback(() => {
-    if (!settings.showStress) return;
+const updateStressVisualization = useCallback(() => {
+  if (!settings.showStress) return;
 
-    beamConstraints.forEach((constraint, i) => {
-      const stressLevel = stressLevelsRef.current[i] || 0;
+  beamConstraints.forEach((beamSystem, i) => {
+    const stressLevel = stressLevelsRef.current[i] || 0;
+    if (beamSystem.beamBody && beamSystem.beamBody.render) {
       const color = stressLevel > 0.7 ? "#EF4444" :
-        stressLevel > 0.4 ? "#F59E0B" : "#10B981";
-      constraint.render.strokeStyle = color;
-      constraint.render.lineWidth = 6 + stressLevel * 4;
-    });
-  }, [beamConstraints, settings.showStress]);
+        stressLevel > 0.4 ? "#F59E0B" : "#374151";
+      beamSystem.beamBody.render.fillStyle = color;
+      
+      // Opcional: cambiar grosor basado en estrés
+      // beamSystem.beamBody.render.lineWidth = 2 + stressLevel * 3;
+    }
+  });
+}, [beamConstraints, settings.showStress]);
 
   // Simulación del vehículo simplificada - movimiento lineal
   // Simulación del vehículo actualizada - dentro del useEffect
@@ -588,7 +620,7 @@ const spawnVehicle = useCallback(() => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 p-4">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-4xl font-bold text-center mb-6 text-gray-800">
-          Poly Bridge Simulator
+          BridgeX
         </h1>
 
         {/* Panel de herramientas superior */}
@@ -612,7 +644,7 @@ const spawnVehicle = useCallback(() => {
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
           {/* Área de simulación */}
-          <div className="lg:col-span-3">
+          <div className="lg:col-span-4">
             <div className="bg-white rounded-xl shadow-lg overflow-hidden">
               <StatusIndicators
                 gameStatus={gameStatus}
@@ -675,7 +707,7 @@ const spawnVehicle = useCallback(() => {
 
         {/* Footer */}
         <div className="mt-6 text-center text-gray-500 text-sm">
-          <p>Poly Bridge Simulator - Construye, prueba y optimiza tus diseños de puentes</p>
+          <p>BridgeX - Construye, prueba y optimiza tus diseños de puentes</p>
           <p className="mt-1">Los nodos ahora se mantienen fijos en su posición hasta que pruebes la simulación</p>
         </div>
       </div>
