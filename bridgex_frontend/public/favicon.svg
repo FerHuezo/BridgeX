@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" fill="transparent"></rect>
+  <!-- base del puente -->
+  <path d="M8 48 L56 48" stroke="#1e3a8a" stroke-width="4" stroke-linecap="round"></path>
+  <!-- arco en X -->
+  <path d="M8 48 Q32 8 56 48" stroke="#1e40af" stroke-width="3" fill="none"></path>
+  <path d="M8 48 Q32 32 56 48" stroke="#3b82f6" stroke-width="2" fill="none"></path>
+  <!-- la X central estilizada -->
+  <line x1="24" y1="20" x2="40" y2="44" stroke="#2563eb" stroke-width="3" stroke-linecap="round"></line>
+  <line x1="40" y1="20" x2="24" y2="44" stroke="#2563eb" stroke-width="3" stroke-linecap="round"></line>
+</svg>

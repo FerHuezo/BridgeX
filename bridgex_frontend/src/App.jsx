@@ -22,26 +22,26 @@ const VEHICLE_CONFIGS = {
   car: {
     name: "🚗 Carro Ligero",
     description: "Vehículo estándar, liviano y rápido",
-    chassis: { width: 100, height: 30, density: 0.003 }, // Ligeramente más pesado
-    wheels: { radius: 18, density: 0.008, offsetY: 25 }, // Ruedas más pesadas para estabilidad
+    chassis: { width: 60, height: 20, density: 0.003 },
+    wheels: { radius: 12, density: 0.008, offsetY: 16 },
     color: { chassis: "#DC2626", wheels: "#000000" },
     physics: {
-      friction: 0.8,       // Más fricción
-      wheelFriction: 2.0,  // Mucha más fricción en ruedas
-      restitution: 0.05,   // Menos rebote
-      stiffness: 1.2,      // Suspensión más rígida
-      damping: 0.3         // Más amortiguación
+      friction: 0.8,
+      wheelFriction: 2.0,
+      restitution: 0.05,
+      stiffness: 1.2,
+      damping: 0.3
     },
-    speed: 0.0006,         // Velocidad reducida para mayor control
+    speed: 0.0006,
     weight: 1200,
-    torque: 0.02           // Fuerza de las ruedas
+    torque: 0.02
   },
   
   truck: {
     name: "🚛 Camión Pesado",
     description: "Vehículo pesado de carga, lento pero resistente",
-    chassis: { width: 140, height: 45, density: 0.008 },
-    wheels: { radius: 25, density: 0.015, offsetY: 35 },
+    chassis: { width: 84, height: 30, density: 0.008 },
+    wheels: { radius: 16, density: 0.015, offsetY: 22 },
     color: { chassis: "#F97316", wheels: "#1C1917" },
     physics: {
       friction: 1.0,
@@ -58,8 +58,8 @@ const VEHICLE_CONFIGS = {
   bus: {
     name: "🚌 Autobús",
     description: "Vehículo largo para pasajeros",
-    chassis: { width: 160, height: 50, density: 0.008 },
-    wheels: { radius: 22, density: 0.010, offsetY: 30 },
+    chassis: { width: 96, height: 32, density: 0.008 },
+    wheels: { radius: 14, density: 0.010, offsetY: 20 },
     color: { chassis: "#EAB308", wheels: "#27272A" },
     physics: {
       friction: 0.8,
@@ -76,8 +76,8 @@ const VEHICLE_CONFIGS = {
   motorcycle: {
     name: "🏍️ Motocicleta",
     description: "Vehículo muy ligero y ágil",
-    chassis: { width: 80, height: 20, density: 0.0008 },
-    wheels: { radius: 15, density: 0.0015, offsetY: 18 },
+    chassis: { width: 48, height: 14, density: 0.0008 },
+    wheels: { radius: 10, density: 0.0015, offsetY: 12 },
     color: { chassis: "#059669", wheels: "#1F2937" },
     physics: {
       friction: 0.5,
@@ -94,8 +94,8 @@ const VEHICLE_CONFIGS = {
   tank: {
     name: "🚜 Tanque Militar",
     description: "Vehículo blindado super pesado",
-    chassis: { width: 120, height: 40, density: 0.008 },
-    wheels: { radius: 20, density: 0.010, offsetY: 28 },
+    chassis: { width: 72, height: 26, density: 0.008 },
+    wheels: { radius: 13, density: 0.010, offsetY: 18 },
     color: { chassis: "#4B5563", wheels: "#111827" },
     physics: {
       friction: 1.2,
@@ -112,8 +112,8 @@ const VEHICLE_CONFIGS = {
   formula1: {
     name: "🏎️ Fórmula 1",
     description: "Carro de carreras ultra rápido",
-    chassis: { width: 110, height: 25, density: 0.0012 },
-    wheels: { radius: 16, density: 0.002, offsetY: 20 },
+    chassis: { width: 66, height: 16, density: 0.0012 },
+    wheels: { radius: 10, density: 0.002, offsetY: 14 },
     color: { chassis: "#EF4444", wheels: "#0F172A" },
     physics: {
       friction: 0.3,
@@ -130,8 +130,8 @@ const VEHICLE_CONFIGS = {
   monster_truck: {
     name: "🚙 Monster Truck",
     description: "Camioneta con ruedas gigantes",
-    chassis: { width: 130, height: 35, density: 0.007 },
-    wheels: { radius: 35, density: 0.012, offsetY: 45 },
+    chassis: { width: 78, height: 22, density: 0.007 },
+    wheels: { radius: 22, density: 0.012, offsetY: 28 },
     color: { chassis: "#8B5CF6", wheels: "#1E1B4B" },
     physics: {
       friction: 0.8,
@@ -146,12 +146,35 @@ const VEHICLE_CONFIGS = {
   }
 };
 
-// Configuración global
-const CANVAS_WIDTH = 1400;
-const CANVAS_HEIGHT = 700;
+// Configuración responsive del canvas
+const getCanvasSize = () => {
+  const screenWidth = window.innerWidth;
+  const screenHeight = window.innerHeight;
+  
+  let width, height;
+  
+  if (screenWidth >= 1400) {
+    width = 1200;
+    height = 600;
+  } else if (screenWidth >= 1024) {
+    width = Math.min(1000, screenWidth - 200);
+    height = 500;
+  } else if (screenWidth >= 768) {
+    width = screenWidth - 60;
+    height = 450;
+  } else {
+    width = screenWidth - 20;
+    height = 400;
+  }
+  
+  return { width, height };
+};
+
+const INITIAL_CANVAS_SIZE = getCanvasSize();
 
 export default function App() {
   const sceneRef = useRef(null);
+  const [canvasSize, setCanvasSize] = useState(INITIAL_CANVAS_SIZE);
 
   // Estados principales
   const [tool, setTool] = useState("node");
@@ -167,6 +190,8 @@ export default function App() {
 
   // Estados de UI
   const [showSettings, setShowSettings] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
+  const [showStats, setShowStats] = useState(true);
   const [bridgeIntegrity, setBridgeIntegrity] = useState(100);
   const [vehicleProgress, setVehicleProgress] = useState(0);
   const [gameStatus, setGameStatus] = useState("building");
@@ -175,15 +200,26 @@ export default function App() {
   const [settings, setSettings] = useState({
     gravity: 0.8,
     vehicleType: 'car',
-    vehicleSpeed: 0.0006,    // Velocidad reducida por defecto
+    vehicleSpeed: 0.0006,
     vehicleWeight: 1200,
-    stressThreshold: 0.65,   // Umbral más realista
+    stressThreshold: 0.65,
     showStress: true,
     autoBreak: true
   });
 
+  // Manejo responsive
+  useEffect(() => {
+    const handleResize = () => {
+      const newSize = getCanvasSize();
+      setCanvasSize(newSize);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Hooks personalizados
-  const { engineRef, renderRef, initializeEngine, createTerrain } = usePhysicsEngine(settings);
+  const { engineRef, renderRef, initializeEngine, createTerrain } = usePhysicsEngine(settings, canvasSize);
 
   const {
     nodeBodies,
@@ -217,7 +253,7 @@ export default function App() {
     });
   }, [nodeBodies.length, beamConstraints.length, stressLevelsRef]);
 
-  // FUNCIÓN DE DETECCIÓN DE ESTRÉS MEJORADA - Definida una sola vez aquí
+  // FUNCIÓN DE DETECCIÓN DE ESTRÉS MEJORADA
   const detectAndBreakOverstressedBeams = useCallback(() => {
     if (!beamConstraints.length) return;
 
@@ -231,49 +267,37 @@ export default function App() {
       
       if (!node1 || !node2) return;
 
-      // CÁLCULO DE ESTRÉS MEJORADO - Múltiples factores
       const dx = node2.position.x - node1.position.x;
       const dy = node2.position.y - node1.position.y;
       const currentLength = Math.hypot(dx, dy);
       const restLength = meta.originalLength;
 
-      // Estrés por deformación (estiramiento/compresión)
       const deformationStress = Math.abs(currentLength - restLength) / restLength;
-      
-      // Estrés por velocidad de deformación
       const velocityStress = Math.abs(beamSystem.beamBody.velocity.x + beamSystem.beamBody.velocity.y) * 0.01;
-      
-      // Estrés por rotación excesiva
       const rotationStress = Math.abs(beamSystem.beamBody.angle) * 0.1;
-      
-      // Estrés combinado con pesos
       const totalStress = (deformationStress * 0.7) + (velocityStress * 0.2) + (rotationStress * 0.1);
 
       stressLevelsRef.current[i] = totalStress;
 
-      // VISUALIZACIÓN DE ESTRÉS MEJORADA con gradientes más suaves
       if (beamSystem.beamBody && beamSystem.beamBody.render) {
         let color;
         if (totalStress > 0.8) {
-          color = "#DC2626"; // Rojo crítico
+          color = "#DC2626";
         } else if (totalStress > 0.6) {
-          color = "#EA580C"; // Naranja alto
+          color = "#EA580C";
         } else if (totalStress > 0.4) {
-          color = "#F59E0B"; // Amarillo medio
+          color = "#F59E0B";
         } else if (totalStress > 0.2) {
-          color = "#84CC16"; // Verde-amarillo bajo
+          color = "#84CC16";
         } else {
-          color = "#10B981"; // Verde seguro
+          color = "#10B981";
         }
         
         beamSystem.beamBody.render.fillStyle = color;
         beamSystem.beamBody.render.strokeStyle = color.replace('6', '8');
-        
-        // Grosor visual basado en estrés
         beamSystem.beamBody.render.lineWidth = 2 + totalStress * 2;
       }
 
-      // UMBRAL DE ROTURA AJUSTADO para mayor realismo
       const adjustedThreshold = settings.stressThreshold * (1 + Math.random() * 0.2);
       
       if (totalStress > adjustedThreshold) {
@@ -281,7 +305,6 @@ export default function App() {
       }
     });
 
-    // ROTURA DE VIGAS con efectos mejorados
     if (toRemove.length > 0) {
       const integrityLoss = toRemove.length * (15 + Math.random() * 10);
       setBridgeIntegrity(prev => Math.max(0, prev - integrityLoss));
@@ -289,7 +312,6 @@ export default function App() {
       toRemove.sort((a, b) => b - a).forEach(idx => {
         const beamSystem = beamConstraints[idx];
         
-        // Remover todos los componentes del sistema de viga mejorado
         World.remove(engineRef.current.world, [
           beamSystem.beamBody,
           beamSystem.constraint1,
@@ -305,7 +327,6 @@ export default function App() {
 
       setBeamConstraints([...beamConstraints]);
       
-      // Si se rompieron muchas vigas, considerar fallo inmediato
       if (toRemove.length >= 3) {
         setBridgeIntegrity(prev => Math.max(0, prev - 30));
         if (bridgeIntegrity <= 20) {
@@ -316,10 +337,9 @@ export default function App() {
     }
   }, [beamConstraints, settings.stressThreshold, nodeBodies, bridgeIntegrity, engineRef]);
 
-  // FUNCIÓN DE VISUALIZACIÓN DE ESTRÉS MEJORADA
+  // Función de visualización de estrés
   const updateStressVisualization = useCallback(() => {
     if (!settings.showStress) {
-      // Si no se muestra estrés, usar color neutro
       beamConstraints.forEach((beamSystem) => {
         if (beamSystem.beamBody && beamSystem.beamBody.render) {
           beamSystem.beamBody.render.fillStyle = "#374151";
@@ -333,7 +353,6 @@ export default function App() {
     beamConstraints.forEach((beamSystem, i) => {
       const stressLevel = stressLevelsRef.current[i] || 0;
       if (beamSystem.beamBody && beamSystem.beamBody.render) {
-        // Mapeo de colores más detallado
         let color, strokeColor;
         
         if (stressLevel > 0.9) {
@@ -362,7 +381,7 @@ export default function App() {
     if (sceneRef.current) {
       return initializeEngine(sceneRef.current);
     }
-  }, [initializeEngine]);
+  }, [initializeEngine, canvasSize]);
 
   // Actualizar gravedad
   useEffect(() => {
@@ -371,7 +390,7 @@ export default function App() {
     }
   }, [settings.gravity]);
 
-  // Obtener posición del mouse
+  // Obtener posición del mouse (escalada para el nuevo tamaño)
   const getMousePos = useCallback((e) => {
     const rect = sceneRef.current?.querySelector("canvas")?.getBoundingClientRect();
     if (!rect) return { x: 0, y: 0 };
@@ -435,11 +454,10 @@ export default function App() {
     }
   }, [tool, selectedNodeIdx, isSimulating, getMousePos, nodeBodies, addNode, removeElement, addBeam, applyLoadToNode]);
 
-  // FUNCIÓN DE SPAWN DE VEHÍCULO MEJORADA
+  // FUNCIÓN DE SPAWN DE VEHÍCULO ACTUALIZADA para nuevo tamaño
   const spawnVehicle = useCallback(() => {
     if (!engineRef.current) return;
 
-    // Remover vehículo anterior si existe
     if (vehicle?.parts) {
       Object.values(vehicle.parts).forEach(part => {
         if (part.type === 'body' || part.type === 'constraint') {
@@ -449,10 +467,9 @@ export default function App() {
     }
 
     const config = VEHICLE_CONFIGS[settings.vehicleType || 'car'];
-    const startX = 150; // Posición en el centro de la plataforma izquierda
-    const startY = CANVAS_HEIGHT - 200; // Altura adecuada sobre la plataforma
+    const startX = canvasSize.width * 0.125; // 12.5% del ancho
+    const startY = canvasSize.height - (canvasSize.height * 0.25); // 25% desde abajo
 
-    // CHASIS MEJORADO con mejor estabilidad
     const chassis = Bodies.rectangle(
       startX,
       startY,
@@ -477,7 +494,6 @@ export default function App() {
 
     const wheelOffsetX = config.chassis.width * 0.35;
 
-    // RUEDAS MEJORADAS con mejor tracción
     const wheelA = Bodies.circle(
       startX - wheelOffsetX,
       startY + config.wheels.offsetY,
@@ -520,7 +536,6 @@ export default function App() {
       }
     );
 
-    // SUSPENSIÓN MEJORADA para absorber impactos sin empujar el puente
     const axleA = Constraint.create({
       bodyA: chassis,
       pointA: { x: -wheelOffsetX, y: config.chassis.height / 2 },
@@ -541,7 +556,6 @@ export default function App() {
       render: { visible: false }
     });
 
-    // ESTABILIZADORES ADICIONALES para evitar volcaduras
     const stabilizerA = Constraint.create({
       bodyA: chassis,
       pointA: { x: -wheelOffsetX * 0.5, y: -config.chassis.height / 3 },
@@ -562,7 +576,6 @@ export default function App() {
       render: { visible: false }
     });
 
-    // Agregar elementos al mundo
     World.add(engineRef.current.world, [
       chassis, wheelA, wheelB, 
       axleA, axleB, 
@@ -590,39 +603,32 @@ export default function App() {
     }));
 
     return newVehicle;
-  }, [vehicle, settings.vehicleType, engineRef]);
+  }, [vehicle, settings.vehicleType, engineRef, canvasSize]);
 
-  // SISTEMA DE MOVIMIENTO MEJORADO - Sin empujar el puente
+  // Sistema de movimiento actualizado
   useEffect(() => {
     if (!isSimulating || !vehicle?.parts) return;
 
     const interval = setInterval(() => {
       try {
         const { chassis, wheelA, wheelB } = vehicle.parts;
-
-        // SISTEMA DE PROPULSIÓN MEJORADO - Aplicar torque en lugar de velocidad directa
         const config = vehicle.config;
         const torqueForce = config.torque || 0.02;
         
-        // Aplicar torque a las ruedas para movimiento más realista
         Body.setAngularVelocity(wheelA, Math.min(wheelA.angularVelocity + torqueForce, 0.3));
         Body.setAngularVelocity(wheelB, Math.min(wheelB.angularVelocity + torqueForce, 0.3));
         
-        // Fuerza horizontal suave basada en la fricción de las ruedas
         const horizontalForce = config.speed * 1000;
         
-        // Aplicar fuerza solo si el vehículo no está en el aire
-        if (chassis.position.y > CANVAS_HEIGHT - 300) {
+        if (chassis.position.y > canvasSize.height - (canvasSize.height * 0.4)) {
           Body.applyForce(chassis, chassis.position, { x: horizontalForce, y: 0 });
         }
         
-        // ESTABILIZACIÓN ACTIVA - Evitar que el vehículo se vuelque
         if (Math.abs(chassis.angle) > 0.3) {
           const correctionTorque = -chassis.angle * 0.01;
           Body.setAngularVelocity(chassis, chassis.angularVelocity + correctionTorque);
         }
 
-        // LIMITACIÓN DE VELOCIDAD para evitar empujar elementos
         const maxVelocity = 8;
         if (chassis.velocity.x > maxVelocity) {
           Body.setVelocity(chassis, { x: maxVelocity, y: chassis.velocity.y });
@@ -634,38 +640,33 @@ export default function App() {
           Body.setVelocity(wheelB, { x: maxVelocity, y: wheelB.velocity.y });
         }
 
-        // Calcular progreso
-        const progress = Math.min((chassis.position.x - 150) / (CANVAS_WIDTH - 300) * 100, 100);
+        const progress = Math.min((chassis.position.x - canvasSize.width * 0.125) / (canvasSize.width * 0.75) * 100, 100);
         setVehicleProgress(progress);
 
-        // Verificar condiciones de éxito/fallo
         if (progress >= 95) {
           setGameStatus("success");
           setIsSimulating(false);
         }
 
-        // Verificar si cayó al agua (más margen)
-        if (chassis.position.y > CANVAS_HEIGHT - 120) {
+        if (chassis.position.y > canvasSize.height - (canvasSize.height * 0.15)) {
           setGameStatus("failed");
           setIsSimulating(false);
         }
 
-        // Detectar y romper vigas sobrecargadas
         if (settings.autoBreak) {
           detectAndBreakOverstressedBeams();
         }
 
-        // Actualizar visualización de estrés
         updateStressVisualization();
 
       } catch (error) {
         console.error("Error en simulación:", error);
         setIsSimulating(false);
       }
-    }, 16); // ~60 FPS
+    }, 16);
 
     return () => clearInterval(interval);
-  }, [isSimulating, vehicle, settings, detectAndBreakOverstressedBeams, updateStressVisualization]);
+  }, [isSimulating, vehicle, settings, detectAndBreakOverstressedBeams, updateStressVisualization, canvasSize]);
 
   // Exportar diseño
   const exportDesign = useCallback(() => {
@@ -721,47 +722,55 @@ export default function App() {
   // Control de simulación
   const toggleSimulation = useCallback(() => {
     if (!isSimulating) {
-      // Al iniciar simulación
-      controlNodePhysics(false); // false = hacer dinámicos los nodos no-soporte  
+      controlNodePhysics(false);
       spawnVehicle();
       setIsSimulating(true);
     } else {
-      // Al parar simulación
-      controlNodePhysics(true); // true = hacer todos estáticos
+      controlNodePhysics(true);
       setIsSimulating(false);
     }
   }, [isSimulating, vehicle, spawnVehicle, controlNodePhysics]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 p-4">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-4xl font-bold text-center mb-6 text-gray-800">
-          BridgeX
-        </h1>
-
-        {/* Panel de herramientas superior */}
-        <div className="bg-white rounded-xl shadow-lg p-4 mb-4">
-          <div className="flex flex-wrap gap-2 items-center justify-center">
-            <BuildingTools
-              tool={tool}
-              setTool={setTool}
-              isSimulating={isSimulating}
-            />
-            <SimulationControls
-              isSimulating={isSimulating}
-              toggleSimulation={toggleSimulation}
-              resetAll={resetAll}
-              showSettings={showSettings}
-              setShowSettings={setShowSettings}
-              exportDesign={exportDesign}
-            />
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b border-gray-200">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
+              BridgeX
+            </h1>
+            
+            {/* Controles principales en el header */}
+            <div className="flex gap-2">
+              <SimulationControls
+                isSimulating={isSimulating}
+                toggleSimulation={toggleSimulation}
+                resetAll={resetAll}
+                showSettings={showSettings}
+                setShowSettings={setShowSettings}
+                exportDesign={exportDesign}
+              />
+            </div>
           </div>
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-          {/* Área de simulación */}
-          <div className="lg:col-span-4">
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+      <div className="container mx-auto px-2 md:px-4 py-4">
+        {/* Herramientas de construcción */}
+        <div className="bg-white rounded-lg shadow-md p-3 mb-4">
+          <BuildingTools
+            tool={tool}
+            setTool={setTool}
+            isSimulating={isSimulating}
+          />
+        </div>
+
+        {/* Layout principal responsive */}
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
+          {/* Área de simulación - Ocupa toda la anchura en móvil, 3 columnas en desktop */}
+          <div className="xl:col-span-3 order-1">
+            <div className="bg-white rounded-lg shadow-md overflow-hidden">
               <StatusIndicators
                 gameStatus={gameStatus}
                 bridgeIntegrity={bridgeIntegrity}
@@ -769,22 +778,26 @@ export default function App() {
                 vehicleProgress={vehicleProgress}
               />
 
-              {/* Canvas de simulación */}
-              <div className="relative">
+              {/* Canvas de simulación responsive */}
+              <div className="relative overflow-hidden">
                 <div
                   ref={sceneRef}
                   onClick={handleCanvasClick}
-                  className="cursor-crosshair"
-                  style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT }}
+                  className="cursor-crosshair w-full"
+                  style={{ 
+                    width: canvasSize.width, 
+                    height: canvasSize.height,
+                    maxWidth: '100%'
+                  }}
                 />
 
                 {/* Instrucciones superpuestas */}
                 {!nodeBodies.length && (
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="bg-black/70 text-white p-6 rounded-lg text-center">
-                      <h3 className="text-xl font-bold mb-2">¡Construye tu puente!</h3>
-                      <p>Los nodos se quedarán exactamente donde hagas clic</p>
-                      <p className="text-sm mt-2 opacity-75">
+                    <div className="bg-black/70 text-white p-4 md:p-6 rounded-lg text-center max-w-sm mx-4">
+                      <h3 className="text-lg md:text-xl font-bold mb-2">¡Construye tu puente!</h3>
+                      <p className="text-sm md:text-base">Los nodos se quedarán exactamente donde hagas clic</p>
+                      <p className="text-xs md:text-sm mt-2 opacity-75">
                         Conecta las plataformas para que el vehículo pueda cruzar
                       </p>
                     </div>
@@ -794,18 +807,48 @@ export default function App() {
             </div>
           </div>
 
-          {/* Panel lateral */}
-          <div className="space-y-4">
-            <StatsPanel gameStats={gameStats} />
+          {/* Panel lateral - Se muestra debajo en móvil, al lado en desktop */}
+          <div className="xl:col-span-1 order-2 space-y-4">
+            {/* Toggle para mostrar/ocultar paneles en móvil */}
+            <div className="xl:hidden flex gap-2 mb-4">
+              <button
+                onClick={() => setShowStats(!showStats)}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  showStats ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
+                }`}
+              >
+                Stats
+              </button>
+              <button
+                onClick={() => setShowInstructions(!showInstructions)}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  showInstructions ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'
+                }`}
+              >
+                Ayuda
+              </button>
+            </div>
 
-            <SettingsPanel
-              settings={settings}
-              setSettings={setSettings}
-              showSettings={showSettings}
-            />
+            {/* Stats Panel - Siempre visible en desktop */}
+            <div className={showStats || window.innerWidth >= 1280 ? 'block' : 'hidden'}>
+              <StatsPanel gameStats={gameStats} />
+            </div>
 
-            <InstructionsPanel />
+            {/* Settings Panel */}
+            {showSettings && (
+              <SettingsPanel
+                settings={settings}
+                setSettings={setSettings}
+                showSettings={showSettings}
+              />
+            )}
 
+            {/* Instructions Panel - Condicional en móvil */}
+            <div className={showInstructions || window.innerWidth >= 1280 ? 'block' : 'hidden'}>
+              <InstructionsPanel />
+            </div>
+
+            {/* Analysis Panel - Siempre visible */}
             <AnalysisPanel
               nodeBodies={nodeBodies}
               beamConstraints={beamConstraints}
@@ -813,6 +856,7 @@ export default function App() {
               beamMetaRef={beamMetaRef}
             />
 
+            {/* Results Panel */}
             <ResultsPanel
               gameStatus={gameStatus}
               vehicleProgress={vehicleProgress}
@@ -821,10 +865,10 @@ export default function App() {
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="mt-6 text-center text-gray-500 text-sm">
-          <p>BridgeX - Construye, prueba y optimiza tus diseños de puentes</p>
-          <p className="mt-1">Los nodos ahora se mantienen fijos en su posición hasta que pruebes la simulación</p>
+        {/* Footer responsivo */}
+        <div className="mt-6 text-center text-gray-500 text-xs md:text-sm px-4">
+          <p className="mb-1">BridgeX - Construye, prueba y optimiza tus diseños de puentes</p>
+          <p className="hidden md:block">Los nodos ahora se mantienen fijos en su posición hasta que pruebes la simulación</p>
         </div>
       </div>
     </div>
