@@ -23,10 +23,10 @@ const useBridgeElements = (engineRef, updateStats) => {
     
     const node = Bodies.circle(x, y, radius, {
       inertia: Infinity,
-      friction: 1.0, // Aumentar fricción
-      restitution: 0.05, // Reducir rebote
-      frictionAir: 0.1, // Aumentar resistencia al aire
-      density: isSupport ? 0.01 : 0.001, // Soportes más pesados
+      friction: 1.0,
+      restitution: 0.05,
+      frictionAir: 0.1,
+      density: 0.001, // Densidad uniforme para todos los nodos
       render: { 
         fillStyle: color,
         strokeStyle: "#1F2937",
@@ -40,14 +40,14 @@ const useBridgeElements = (engineRef, updateStats) => {
       isLoad
     });
 
-    // TODOS LOS NODOS SON ESTATICOS AL CREARLOS - Los soportes permanecen estáticos siempre
+    // TODOS LOS NODOS SON ESTÁTICOS SIEMPRE
     Body.setStatic(node, true);
     World.add(engineRef.current.world, node);
 
     const id = nextNodeId;
     nodeMetaRef.current.push({ 
       id, 
-      support: { ux: isSupport, uy: isSupport }, 
+      support: { ux: true, uy: true }, // TODOS LOS NODOS TIENEN SOPORTE COMPLETO
       load: { fx: 0, fy: 0 },
       isSupport,
       isLoad
@@ -80,85 +80,84 @@ const useBridgeElements = (engineRef, updateStats) => {
     const centerY = (bodyA.position.y + bodyB.position.y) / 2;
     const angle = Math.atan2(bodyB.position.y - bodyA.position.y, bodyB.position.x - bodyA.position.x);
 
-    // CREAR VIGA COMO CUERPO FÍSICO MÁS ROBUSTO
+    // CREAR CUERPO FÍSICO INVISIBLE PARA COLISIÓN (pero más estable)
     const beamBody = Bodies.rectangle(
       centerX,
       centerY,
-      len, // longitud
-      12,  // grosor aumentado para mayor estabilidad
+      len,
+      6, // Grosor para colisión
       {
         angle: angle,
         isStatic: false,
-        density: 0.005, // Aumentar densidad para mayor estabilidad
-        friction: 1.0,  // Máxima fricción
-        restitution: 0.01, // Minimizar rebote
-        frictionAir: 0.05, // Resistencia al aire
+        density: 0.001, // Muy liviano para que no afecte mucho la física
+        friction: 0.8,
+        restitution: 0.01,
+        frictionAir: 0.01,
         render: {
-          fillStyle: "#374151",
-          strokeStyle: "#1F2937",
-          lineWidth: 3
+          visible: false // INVISIBLE - no se dibuja
         },
         collisionFilter: {
-          category: 0x0002, // Categoría de vigas
-          mask: 0x0001 | 0x0008 // Colisiona con vehículos y terreno
+          category: 0x0002,
+          mask: 0x0001 // Solo colisiona con vehículos
         }
       }
     );
 
-    // CONEXIONES MÁS RÍGIDAS - Usar múltiples constraints para mayor estabilidad
-    // Constraint principal para estructura
-    const constraint1 = Constraint.create({
+    // CONSTRAINT VISUAL entre nodos (lo que se ve)
+    const visualConstraint = Constraint.create({
+      bodyA: bodyA,
+      bodyB: bodyB,
+      length: len,
+      stiffness: 0.9,
+      damping: 0.1,
+      render: {
+        visible: true,
+        lineWidth: 4,
+        strokeStyle: "#374151",
+        type: "line"
+      }
+    });
+
+    // CONSTRAINTS FÍSICOS para conectar el cuerpo invisible a los nodos
+    const physicsConstraint1 = Constraint.create({
       bodyA: bodyA,
       bodyB: beamBody,
       pointB: { x: -len/2, y: 0 },
-      stiffness: 1.0, // Máxima rigidez
-      damping: 0.2,   // Amortiguación para evitar oscilaciones
+      stiffness: 0.9,
+      damping: 0.1,
+      length: 0,
       render: { visible: false }
     });
 
-    const constraint2 = Constraint.create({
+    const physicsConstraint2 = Constraint.create({
       bodyA: bodyB,
       bodyB: beamBody,
       pointB: { x: len/2, y: 0 },
-      stiffness: 1.0, // Máxima rigidez
-      damping: 0.2,   // Amortiguación para evitar oscilaciones
-      render: { visible: false }
-    });
-
-    // CONSTRAINTS ADICIONALES PARA ESTABILIDAD ROTACIONAL
-    const stabilizer1 = Constraint.create({
-      bodyA: bodyA,
-      bodyB: beamBody,
-      pointB: { x: -len/2, y: -3 }, // Offset vertical para resistir rotación
-      stiffness: 0.8,
-      damping: 0.3,
-      render: { visible: false }
-    });
-
-    const stabilizer2 = Constraint.create({
-      bodyA: bodyB,
-      bodyB: beamBody,
-      pointB: { x: len/2, y: -3 }, // Offset vertical para resistir rotación
-      stiffness: 0.8,
-      damping: 0.3,
+      stiffness: 0.9,
+      damping: 0.1,
+      length: 0,
       render: { visible: false }
     });
 
     // Agregar todo al mundo
-    World.add(engineRef.current.world, [beamBody, constraint1, constraint2, stabilizer1, stabilizer2]);
+    World.add(engineRef.current.world, [
+      beamBody, 
+      visualConstraint, 
+      physicsConstraint1, 
+      physicsConstraint2
+    ]);
 
-    // Crear el objeto combinado mejorado
+    // Sistema de viga híbrido
     const beamSystem = {
-      beamBody: beamBody,
-      constraint1: constraint1,
-      constraint2: constraint2,
-      stabilizer1: stabilizer1,
-      stabilizer2: stabilizer2,
+      beamBody: beamBody, // Para colisión física
+      visualConstraint: visualConstraint, // Para visualización
+      physicsConstraint1: physicsConstraint1,
+      physicsConstraint2: physicsConstraint2,
+      constraint: visualConstraint, // Para compatibilidad con código de estrés
       length: len,
-      // Mantener propiedades compatibles con código existente
       bodyA: bodyA,
       bodyB: bodyB,
-      render: beamBody.render
+      render: visualConstraint.render
     };
 
     const id = beamMetaRef.current.length;
@@ -202,13 +201,12 @@ const useBridgeElements = (engineRef, updateStats) => {
       connectedConstraints.reverse().forEach(constraintIdx => {
         const beamSystem = beamConstraints[constraintIdx];
         
-        // Remover todos los componentes del sistema de viga mejorado
+        // Remover todos los componentes del sistema híbrido
         World.remove(engineRef.current.world, [
           beamSystem.beamBody,
-          beamSystem.constraint1,
-          beamSystem.constraint2,
-          beamSystem.stabilizer1,
-          beamSystem.stabilizer2
+          beamSystem.visualConstraint,
+          beamSystem.physicsConstraint1,
+          beamSystem.physicsConstraint2
         ]);
         
         beamConstraints.splice(constraintIdx, 1);
@@ -229,27 +227,42 @@ const useBridgeElements = (engineRef, updateStats) => {
 
     // Si no se encontró un nodo, buscar viga para eliminar
     const beamIdx = beamConstraints.findIndex(beamSystem => {
-      const beamBody = beamSystem.beamBody;
-      if (!beamBody) return false;
+      if (!beamSystem.visualConstraint) return false;
       
-      // Verificar si el click está sobre la viga
-      const dx = x - beamBody.position.x;
-      const dy = y - beamBody.position.y;
-      const distance = Math.hypot(dx, dy);
+      // Verificar si el click está cerca de la línea de la viga
+      const bodyA = beamSystem.bodyA;
+      const bodyB = beamSystem.bodyB;
       
-      return distance < 25; // Área de click aumentada para vigas más gruesas
+      if (!bodyA || !bodyB) return false;
+      
+      // Calcular distancia del punto a la línea
+      const A = bodyA.position.x;
+      const B = bodyA.position.y;
+      const C = bodyB.position.x;
+      const D = bodyB.position.y;
+      
+      const lengthSquared = (C - A) * (C - A) + (D - B) * (D - B);
+      if (lengthSquared === 0) return false;
+      
+      const t = Math.max(0, Math.min(1, ((x - A) * (C - A) + (y - B) * (D - B)) / lengthSquared));
+      const projection = {
+        x: A + t * (C - A),
+        y: B + t * (D - B)
+      };
+      
+      const distance = Math.hypot(x - projection.x, y - projection.y);
+      return distance < 15; // Tolerancia para click en viga
     });
 
     if (beamIdx >= 0) {
       const beamSystem = beamConstraints[beamIdx];
       
-      // Remover todos los componentes del sistema de viga mejorado
+      // Remover todos los componentes del sistema híbrido
       World.remove(engineRef.current.world, [
         beamSystem.beamBody,
-        beamSystem.constraint1,
-        beamSystem.constraint2,
-        beamSystem.stabilizer1,
-        beamSystem.stabilizer2
+        beamSystem.visualConstraint,
+        beamSystem.physicsConstraint1,
+        beamSystem.physicsConstraint2
       ]);
       
       beamConstraints.splice(beamIdx, 1);
@@ -262,17 +275,16 @@ const useBridgeElements = (engineRef, updateStats) => {
   }, [nodeBodies, beamConstraints, engineRef, updateStats]);
 
   const applyLoadToNode = useCallback((nodeIdx, fy) => {
-    const body = nodeBodies[nodeIdx];
-    if (!body) return;
-    
-    const forceVec = { x: 0, y: fy * 0.0001 };
-    Body.applyForce(body, body.position, forceVec);
-
+    // NOTA: Como los nodos son estáticos, las cargas se aplicarán principalmente 
+    // a las vigas conectadas durante la simulación
     const meta = nodeMetaRef.current[nodeIdx];
     if (meta) {
       meta.load = { fx: 0, fy };
       meta.isLoad = true;
-      body.render.fillStyle = "#F59E0B";
+      // Cambiar color para indicar que tiene carga
+      if (nodeBodies[nodeIdx]) {
+        nodeBodies[nodeIdx].render.fillStyle = "#F59E0B";
+      }
     }
   }, [nodeBodies]);
 
@@ -286,43 +298,33 @@ const useBridgeElements = (engineRef, updateStats) => {
   }, []);
 
   const controlNodePhysics = useCallback((makeStatic) => {
-    nodeBodies.forEach((body, idx) => {
-      const meta = nodeMetaRef.current[idx];
-      if (makeStatic) {
-        // Hacer todos los nodos estáticos
-        Body.setStatic(body, true);
-        Body.setVelocity(body, { x: 0, y: 0 });
-        Body.setAngularVelocity(body, 0);
-      } else {
-        // Los SOPORTES siempre permanecen estáticos
-        if (meta && meta.isSupport) {
-          Body.setStatic(body, true);
-        } else {
-          // Solo los nodos normales se vuelven dinámicos
-          Body.setStatic(body, false);
-          // Aplicar propiedades de estabilidad
-          body.friction = 1.0;
-          body.frictionAir = 0.1;
-          body.restitution = 0.05;
-        }
-      }
+    // LOS NODOS SIEMPRE PERMANECEN ESTÁTICOS
+    nodeBodies.forEach((body) => {
+      Body.setStatic(body, true); // Siempre estáticos
+      Body.setVelocity(body, { x: 0, y: 0 });
+      Body.setAngularVelocity(body, 0);
     });
 
-    // Controlar física de las vigas para mayor estabilidad
+    // Control de las vigas híbridas
     beamConstraints.forEach(beamSystem => {
       if (beamSystem.beamBody) {
         if (makeStatic) {
-          // Al parar simulación, estabilizar vigas
-          Body.setStatic(beamSystem.beamBody, false);
+          // Al parar simulación, detener movimiento de las vigas de colisión
           Body.setVelocity(beamSystem.beamBody, { x: 0, y: 0 });
           Body.setAngularVelocity(beamSystem.beamBody, 0);
         } else {
-          // Durante simulación, aplicar propiedades de estabilidad
+          // Durante simulación, asegurar propiedades correctas
           Body.setStatic(beamSystem.beamBody, false);
-          beamSystem.beamBody.friction = 1.0;
-          beamSystem.beamBody.frictionAir = 0.05;
+          beamSystem.beamBody.friction = 0.8;
+          beamSystem.beamBody.frictionAir = 0.01;
           beamSystem.beamBody.restitution = 0.01;
         }
+      }
+      
+      // Mantener constraints visuales
+      if (beamSystem.visualConstraint) {
+        beamSystem.visualConstraint.stiffness = 0.9;
+        beamSystem.visualConstraint.damping = 0.1;
       }
     });
   }, [nodeBodies, beamConstraints]);

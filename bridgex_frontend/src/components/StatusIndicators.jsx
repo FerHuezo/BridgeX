@@ -1,10 +1,12 @@
 import React from 'react';
 
-const StatusIndicators = ({ gameStatus, bridgeIntegrity, isSimulating, vehicleProgress }) => {
+const StatusIndicators = ({ gameStatus, bridgeIntegrity, isSimulating, vehicleProgress, vehicleAcceleration = 100 }) => {
   const getStatusText = () => {
     switch (gameStatus) {
       case "building": return "Construyendo";
-      case "testing": return "Probando";
+      case "testing": 
+        if (vehicleAcceleration < 100) return "Acelerando";
+        return "Probando";
       case "success": return "¡Éxito!";
       default: return "Falló";
     }
@@ -13,7 +15,9 @@ const StatusIndicators = ({ gameStatus, bridgeIntegrity, isSimulating, vehiclePr
   const getStatusColor = () => {
     switch (gameStatus) {
       case "building": return "from-blue-500 to-purple-600";
-      case "testing": return "from-yellow-500 to-orange-600";
+      case "testing": 
+        if (vehicleAcceleration < 100) return "from-yellow-400 to-orange-500";
+        return "from-yellow-500 to-orange-600";
       case "success": return "from-green-500 to-emerald-600";
       default: return "from-red-500 to-pink-600";
     }
@@ -33,6 +37,12 @@ const StatusIndicators = ({ gameStatus, bridgeIntegrity, isSimulating, vehiclePr
           {isSimulating && (
             <span className="sm:hidden">
               Progreso: <strong>{Math.round(vehicleProgress)}%</strong>
+            </span>
+          )}
+          {/* Mostrar aceleración solo si está acelerando */}
+          {isSimulating && vehicleAcceleration < 100 && (
+            <span className="text-yellow-100">
+              Acelera: <strong>{Math.round(vehicleAcceleration)}%</strong>
             </span>
           )}
         </div>
@@ -68,6 +78,20 @@ const StatusIndicators = ({ gameStatus, bridgeIntegrity, isSimulating, vehiclePr
         </div>
         <span className="text-xs font-medium min-w-[2.5rem]">{bridgeIntegrity}%</span>
       </div>
+
+      {/* Barra de aceleración adicional cuando está acelerando */}
+      {isSimulating && vehicleAcceleration < 100 && (
+        <div className="mt-2 flex items-center gap-2">
+          <span className="text-xs opacity-90">Aceleración:</span>
+          <div className="flex-1 bg-white/20 rounded-full h-1">
+            <div 
+              className="bg-yellow-300 h-1 rounded-full transition-all duration-300"
+              style={{ width: `${vehicleAcceleration}%` }}
+            />
+          </div>
+          <span className="text-xs font-medium min-w-[2.5rem]">{Math.round(vehicleAcceleration)}%</span>
+        </div>
+      )}
     </div>
   );
 };

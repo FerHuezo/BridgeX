@@ -29,17 +29,22 @@ const InstructionsPanel = () => {
           
           {/* Instrucciones básicas - Siempre visibles */}
           <div className="space-y-1">
-            <div><strong>Nodo:</strong> Click para añadir puntos fijos</div>
+            <div><strong>Nodo:</strong> Click para añadir puntos completamente fijos</div>
             <div><strong>Viga:</strong> Click en dos nodos para conectarlos</div>
-            <div><strong>Soporte:</strong> Crea puntos fijos (verdes)</div>
-            <div className="md:block"><strong>Carga:</strong> Aplica peso a un nodo</div>
+            <div><strong>Soporte:</strong> Crea nodos verdes (misma función que nodos normales)</div>
+            <div className="md:block"><strong>Carga:</strong> Marca un nodo con peso adicional</div>
             <div><strong>Borrar:</strong> Click en elementos para eliminar</div>
           </div>
           
           {/* Información adicional */}
           <div className="pt-2 md:pt-3 border-t border-gray-200">
-            <div className="text-xs bg-blue-50 p-2 rounded mb-2">
-              <strong>¡NUEVO!</strong> Los nodos ahora se quedan exactamente donde haces clic. Solo se mueven durante la simulación.
+            <div className="text-xs bg-green-50 border border-green-200 p-2 rounded mb-2">
+              <strong>✅ NUEVA FUNCIONALIDAD:</strong>
+              <ul className="mt-1 space-y-1 list-disc list-inside">
+                <li><strong>Nodos completamente fijos:</strong> Nunca se mueven durante la simulación</li>
+                <li><strong>Aceleración gradual:</strong> El vehículo acelera suavemente sin impulsos bruscos</li>
+                <li><strong>Solo las vigas se flexionan:</strong> Comportamiento más realista</li>
+              </ul>
             </div>
             
             <div className="text-xs mb-2">
@@ -47,9 +52,20 @@ const InstructionsPanel = () => {
             </div>
           </div>
 
+          {/* Comportamiento del sistema */}
+          <div className="pt-2 border-t border-gray-200">
+            <div className="text-xs mb-1"><strong>Comportamiento del Sistema:</strong></div>
+            <div className="space-y-1 text-xs">
+              <div>🔹 <strong>Nodos:</strong> Permanecen fijos en su posición original</div>
+              <div>🔹 <strong>Vigas:</strong> Pueden flexionarse y rotar alrededor de los nodos</div>
+              <div>🔹 <strong>Vehículo:</strong> Acelera gradualmente durante 2 segundos</div>
+              <div>🔹 <strong>Soportes:</strong> Funcionan igual que los nodos normales</div>
+            </div>
+          </div>
+
           {/* Colores de estrés - Compacto */}
           <div className="pt-2 border-t border-gray-200">
-            <div className="text-xs mb-1"><strong>Colores de Estrés:</strong></div>
+            <div className="text-xs mb-1"><strong>Colores de Estrés en Vigas:</strong></div>
             <div className="grid grid-cols-2 md:grid-cols-1 gap-1 text-xs">
               <div className="flex items-center gap-1">
                 <div className="w-2 h-2 rounded-full bg-green-500"></div>
@@ -61,7 +77,7 @@ const InstructionsPanel = () => {
               </div>
               <div className="flex items-center gap-1 col-span-2 md:col-span-1">
                 <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                <span>Rojo: Alto estrés (peligro)</span>
+                <span>Rojo: Alto estrés (se romperá)</span>
               </div>
             </div>
           </div>
@@ -69,11 +85,25 @@ const InstructionsPanel = () => {
           {/* Tips rápidos para móvil */}
           <div className="md:hidden pt-2 border-t border-gray-200">
             <div className="text-xs bg-gray-50 p-2 rounded">
-              <strong>💡 Tips:</strong>
+              <strong>💡 Tips Estratégicos:</strong>
               <ul className="list-disc list-inside mt-1 space-y-1">
-                <li>Usa triángulos para mayor estabilidad</li>
-                <li>Los soportes (verdes) nunca se mueven</li>
-                <li>Menos vigas = menor costo</li>
+                <li>Usa estructuras triangulares para mayor estabilidad</li>
+                <li>Los nodos verdes y azules funcionan igual</li>
+                <li>Menos vigas = menor costo pero menos estabilidad</li>
+                <li>El vehículo ya no tiene impulso inicial brusco</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Ventajas del nuevo sistema */}
+          <div className="pt-2 border-t border-gray-200">
+            <div className="text-xs bg-blue-50 border border-blue-200 p-2 rounded">
+              <strong>🚀 Mejoras del Sistema:</strong>
+              <ul className="list-disc list-inside mt-1 space-y-1">
+                <li>Construcción más predecible y estable</li>
+                <li>Simulación más realista de estructuras</li>
+                <li>Movimiento suave del vehículo</li>
+                <li>Mejor control de la física del puente</li>
               </ul>
             </div>
           </div>

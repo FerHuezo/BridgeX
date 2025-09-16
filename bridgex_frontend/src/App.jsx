@@ -27,14 +27,14 @@ const VEHICLE_CONFIGS = {
     color: { chassis: "#DC2626", wheels: "#000000" },
     physics: {
       friction: 0.8,
-      wheelFriction: 2.0,
+      wheelFriction: 1.0,
       restitution: 0.05,
       stiffness: 1.2,
       damping: 0.3
     },
-    speed: 0.0006,
+    speed: 0.00002, // Reducido para inicio más suave
     weight: 1200,
-    torque: 0.02
+    torque: 0.01 // Reducido para menos impulso inicial
   },
   
   truck: {
@@ -50,9 +50,9 @@ const VEHICLE_CONFIGS = {
       stiffness: 1.8,
       damping: 0.4
     },
-    speed: 0.0004,
+    speed: 0.0002, // Reducido para inicio más suave
     weight: 8000,
-    torque: 0.015
+    torque: 0.008 // Reducido para menos impulso inicial
   },
   
   bus: {
@@ -68,9 +68,9 @@ const VEHICLE_CONFIGS = {
       stiffness: 1.2,
       damping: 0.3
     },
-    speed: 0.0006,
+    speed: 0.0003, // Reducido para inicio más suave
     weight: 5500,
-    torque: 0.018
+    torque: 0.009 // Reducido para menos impulso inicial
   },
   
   motorcycle: {
@@ -86,9 +86,9 @@ const VEHICLE_CONFIGS = {
       stiffness: 0.6,
       damping: 0.2
     },
-    speed: 0.0011,
+    speed: 0.0006, // Reducido para inicio más suave
     weight: 250,
-    torque: 0.025
+    torque: 0.012 // Reducido para menos impulso inicial
   },
   
   tank: {
@@ -104,9 +104,9 @@ const VEHICLE_CONFIGS = {
       stiffness: 1.0,
       damping: 0.5
     },
-    speed: 0.0004,
+    speed: 0.0002, // Reducido para inicio más suave
     weight: 15000,
-    torque: 0.012
+    torque: 0.006 // Reducido para menos impulso inicial
   },
   
   formula1: {
@@ -122,9 +122,9 @@ const VEHICLE_CONFIGS = {
       stiffness: 0.4,
       damping: 0.15
     },
-    speed: 0.0014,
+    speed: 0.0007, // Reducido para inicio más suave
     weight: 800,
-    torque: 0.035
+    torque: 0.017 // Reducido para menos impulso inicial
   },
   
   monster_truck: {
@@ -140,9 +140,9 @@ const VEHICLE_CONFIGS = {
       stiffness: 1.0,
       damping: 0.3
     },
-    speed: 0.0007,
+    speed: 0.0004, // Reducido para inicio más suave
     weight: 4500,
-    torque: 0.022
+    torque: 0.011 // Reducido para menos impulso inicial
   }
 };
 
@@ -196,11 +196,14 @@ export default function App() {
   const [vehicleProgress, setVehicleProgress] = useState(0);
   const [gameStatus, setGameStatus] = useState("building");
 
+  // NUEVO ESTADO PARA CONTROL DE ACELERACIÓN GRADUAL
+  const [vehicleAcceleration, setVehicleAcceleration] = useState(0);
+
   // Configuraciones iniciales actualizadas
   const [settings, setSettings] = useState({
     gravity: 0.8,
     vehicleType: 'car',
-    vehicleSpeed: 0.0006,
+    vehicleSpeed: 0.0003, // Velocidad inicial reducida
     vehicleWeight: 1200,
     stressThreshold: 0.65,
     showStress: true,
@@ -253,14 +256,14 @@ export default function App() {
     });
   }, [nodeBodies.length, beamConstraints.length, stressLevelsRef]);
 
-  // FUNCIÓN DE DETECCIÓN DE ESTRÉS MEJORADA
+  // FUNCIÓN DE DETECCIÓN DE ESTRÉS ACTUALIZADA PARA SISTEMA HÍBRIDO
   const detectAndBreakOverstressedBeams = useCallback(() => {
     if (!beamConstraints.length) return;
 
     const toRemove = [];
     beamConstraints.forEach((beamSystem, i) => {
       const meta = beamMetaRef.current[i];
-      if (!meta || !beamSystem.beamBody) return;
+      if (!meta) return;
 
       const node1 = nodeBodies[meta.startIdx];
       const node2 = nodeBodies[meta.endIdx];
@@ -272,14 +275,22 @@ export default function App() {
       const currentLength = Math.hypot(dx, dy);
       const restLength = meta.originalLength;
 
+      // Calcular estrés basado en deformación
       const deformationStress = Math.abs(currentLength - restLength) / restLength;
-      const velocityStress = Math.abs(beamSystem.beamBody.velocity.x + beamSystem.beamBody.velocity.y) * 0.01;
-      const rotationStress = Math.abs(beamSystem.beamBody.angle) * 0.1;
-      const totalStress = (deformationStress * 0.7) + (velocityStress * 0.2) + (rotationStress * 0.1);
-
+      
+      // Estrés adicional por movimiento de la viga física (si existe)
+      let physicsStress = 0;
+      if (beamSystem.beamBody) {
+        const beamVelocity = Math.hypot(beamSystem.beamBody.velocity.x, beamSystem.beamBody.velocity.y);
+        const beamRotation = Math.abs(beamSystem.beamBody.angularVelocity);
+        physicsStress = (beamVelocity * 0.01) + (beamRotation * 0.1);
+      }
+      
+      const totalStress = deformationStress + physicsStress;
       stressLevelsRef.current[i] = totalStress;
 
-      if (beamSystem.beamBody && beamSystem.beamBody.render) {
+      // Actualizar color del constraint visual basado en estrés
+      if (beamSystem.visualConstraint && beamSystem.visualConstraint.render) {
         let color;
         if (totalStress > 0.8) {
           color = "#DC2626";
@@ -293,9 +304,8 @@ export default function App() {
           color = "#10B981";
         }
         
-        beamSystem.beamBody.render.fillStyle = color;
-        beamSystem.beamBody.render.strokeStyle = color.replace('6', '8');
-        beamSystem.beamBody.render.lineWidth = 2 + totalStress * 2;
+        beamSystem.visualConstraint.render.strokeStyle = color;
+        beamSystem.visualConstraint.render.lineWidth = Math.max(4, 4 + totalStress * 4);
       }
 
       const adjustedThreshold = settings.stressThreshold * (1 + Math.random() * 0.2);
@@ -312,12 +322,12 @@ export default function App() {
       toRemove.sort((a, b) => b - a).forEach(idx => {
         const beamSystem = beamConstraints[idx];
         
+        // Remover todos los componentes del sistema híbrido
         World.remove(engineRef.current.world, [
           beamSystem.beamBody,
-          beamSystem.constraint1,
-          beamSystem.constraint2,
-          ...(beamSystem.stabilizer1 ? [beamSystem.stabilizer1] : []),
-          ...(beamSystem.stabilizer2 ? [beamSystem.stabilizer2] : [])
+          beamSystem.visualConstraint,
+          beamSystem.physicsConstraint1,
+          beamSystem.physicsConstraint2
         ]);
         
         beamConstraints.splice(idx, 1);
@@ -337,14 +347,13 @@ export default function App() {
     }
   }, [beamConstraints, settings.stressThreshold, nodeBodies, bridgeIntegrity, engineRef]);
 
-  // Función de visualización de estrés
+  // Función de visualización de estrés actualizada para sistema híbrido
   const updateStressVisualization = useCallback(() => {
     if (!settings.showStress) {
       beamConstraints.forEach((beamSystem) => {
-        if (beamSystem.beamBody && beamSystem.beamBody.render) {
-          beamSystem.beamBody.render.fillStyle = "#374151";
-          beamSystem.beamBody.render.strokeStyle = "#1F2937";
-          beamSystem.beamBody.render.lineWidth = 3;
+        if (beamSystem.visualConstraint && beamSystem.visualConstraint.render) {
+          beamSystem.visualConstraint.render.strokeStyle = "#374151";
+          beamSystem.visualConstraint.render.lineWidth = 4;
         }
       });
       return;
@@ -352,26 +361,25 @@ export default function App() {
 
     beamConstraints.forEach((beamSystem, i) => {
       const stressLevel = stressLevelsRef.current[i] || 0;
-      if (beamSystem.beamBody && beamSystem.beamBody.render) {
-        let color, strokeColor;
+      if (beamSystem.visualConstraint && beamSystem.visualConstraint.render) {
+        let color;
         
         if (stressLevel > 0.9) {
-          color = "#B91C1C"; strokeColor = "#7F1D1D";
+          color = "#B91C1C";
         } else if (stressLevel > 0.7) {
-          color = "#DC2626"; strokeColor = "#991B1B";
+          color = "#DC2626";
         } else if (stressLevel > 0.5) {
-          color = "#EA580C"; strokeColor = "#C2410C";
+          color = "#EA580C";
         } else if (stressLevel > 0.3) {
-          color = "#F59E0B"; strokeColor = "#D97706";
+          color = "#F59E0B";
         } else if (stressLevel > 0.1) {
-          color = "#84CC16"; strokeColor = "#65A30D";
+          color = "#84CC16";
         } else {
-          color = "#10B981"; strokeColor = "#059669";
+          color = "#10B981";
         }
         
-        beamSystem.beamBody.render.fillStyle = color;
-        beamSystem.beamBody.render.strokeStyle = strokeColor;
-        beamSystem.beamBody.render.lineWidth = Math.max(2, 2 + stressLevel * 3);
+        beamSystem.visualConstraint.render.strokeStyle = color;
+        beamSystem.visualConstraint.render.lineWidth = Math.max(4, 4 + stressLevel * 4);
       }
     });
   }, [beamConstraints, settings.showStress, stressLevelsRef]);
@@ -454,7 +462,7 @@ export default function App() {
     }
   }, [tool, selectedNodeIdx, isSimulating, getMousePos, nodeBodies, addNode, removeElement, addBeam, applyLoadToNode]);
 
-  // FUNCIÓN DE SPAWN DE VEHÍCULO ACTUALIZADA para nuevo tamaño
+  // FUNCIÓN DE SPAWN DE VEHÍCULO ACTUALIZADA
   const spawnVehicle = useCallback(() => {
     if (!engineRef.current) return;
 
@@ -467,8 +475,8 @@ export default function App() {
     }
 
     const config = VEHICLE_CONFIGS[settings.vehicleType || 'car'];
-    const startX = canvasSize.width * 0.125; // 12.5% del ancho
-    const startY = canvasSize.height - (canvasSize.height * 0.25); // 25% desde abajo
+    const startX = canvasSize.width * 0.125;
+    const startY = canvasSize.height - (canvasSize.height * 0.25);
 
     const chassis = Bodies.rectangle(
       startX,
@@ -594,6 +602,7 @@ export default function App() {
 
     setVehicle(newVehicle);
     setVehicleProgress(0);
+    setVehicleAcceleration(0); // RESETEAR ACELERACIÓN
     setGameStatus("testing");
 
     setSettings(prev => ({
@@ -605,7 +614,7 @@ export default function App() {
     return newVehicle;
   }, [vehicle, settings.vehicleType, engineRef, canvasSize]);
 
-  // Sistema de movimiento actualizado
+  // SISTEMA DE MOVIMIENTO ACTUALIZADO CON ACELERACIÓN GRADUAL
   useEffect(() => {
     if (!isSimulating || !vehicle?.parts) return;
 
@@ -613,23 +622,37 @@ export default function App() {
       try {
         const { chassis, wheelA, wheelB } = vehicle.parts;
         const config = vehicle.config;
-        const torqueForce = config.torque || 0.02;
         
-        Body.setAngularVelocity(wheelA, Math.min(wheelA.angularVelocity + torqueForce, 0.3));
-        Body.setAngularVelocity(wheelB, Math.min(wheelB.angularVelocity + torqueForce, 0.3));
+        // ACELERACIÓN GRADUAL - Los primeros 2 segundos
+        const elapsedTime = (Date.now() - vehicle.startTime) / 1000;
+        const accelerationPhase = Math.min(elapsedTime / 2, 1); // 2 segundos de aceleración gradual
         
-        const horizontalForce = config.speed * 1000;
+        // Factor de aceleración suave (curva easing)
+        const accelerationCurve = 0.5 * (1 - Math.cos(accelerationPhase * Math.PI));
         
+        // Aplicar torque gradualmente
+        const currentTorque = config.torque * accelerationCurve;
+        const currentSpeed = config.speed * accelerationCurve * 1000;
+        
+        // Aplicar torque a las ruedas de forma más suave
+        const maxAngularVelocity = 0.2 * accelerationCurve; // Velocidad angular máxima gradual
+        
+        Body.setAngularVelocity(wheelA, Math.min(wheelA.angularVelocity + currentTorque, maxAngularVelocity));
+        Body.setAngularVelocity(wheelB, Math.min(wheelB.angularVelocity + currentTorque, maxAngularVelocity));
+        
+        // Fuerza horizontal gradual
         if (chassis.position.y > canvasSize.height - (canvasSize.height * 0.4)) {
-          Body.applyForce(chassis, chassis.position, { x: horizontalForce, y: 0 });
+          Body.applyForce(chassis, chassis.position, { x: currentSpeed, y: 0 });
         }
         
+        // Control de estabilidad más suave
         if (Math.abs(chassis.angle) > 0.3) {
-          const correctionTorque = -chassis.angle * 0.01;
+          const correctionTorque = -chassis.angle * 0.005 * accelerationCurve; // Más suave
           Body.setAngularVelocity(chassis, chassis.angularVelocity + correctionTorque);
         }
 
-        const maxVelocity = 8;
+        // Límite de velocidad gradual
+        const maxVelocity = 6 * accelerationCurve; // Velocidad máxima gradual
         if (chassis.velocity.x > maxVelocity) {
           Body.setVelocity(chassis, { x: maxVelocity, y: chassis.velocity.y });
         }
@@ -642,6 +665,7 @@ export default function App() {
 
         const progress = Math.min((chassis.position.x - canvasSize.width * 0.125) / (canvasSize.width * 0.75) * 100, 100);
         setVehicleProgress(progress);
+        setVehicleAcceleration(accelerationCurve * 100); // Para mostrar progreso de aceleración
 
         if (progress >= 95) {
           setGameStatus("success");
@@ -716,12 +740,14 @@ export default function App() {
     setGameStatus("building");
     setBridgeIntegrity(100);
     setVehicleProgress(0);
+    setVehicleAcceleration(0);
     updateStats();
   }, [engineRef, createTerrain, resetElements, updateStats]);
 
   // Control de simulación
   const toggleSimulation = useCallback(() => {
     if (!isSimulating) {
+      // MANTENER NODOS ESTÁTICOS SIEMPRE - Solo permitir movimiento de vigas
       controlNodePhysics(false);
       spawnVehicle();
       setIsSimulating(true);
@@ -776,6 +802,7 @@ export default function App() {
                 bridgeIntegrity={bridgeIntegrity}
                 isSimulating={isSimulating}
                 vehicleProgress={vehicleProgress}
+                vehicleAcceleration={vehicleAcceleration}
               />
 
               {/* Canvas de simulación responsive */}
@@ -796,10 +823,23 @@ export default function App() {
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div className="bg-black/70 text-white p-4 md:p-6 rounded-lg text-center max-w-sm mx-4">
                       <h3 className="text-lg md:text-xl font-bold mb-2">¡Construye tu puente!</h3>
-                      <p className="text-sm md:text-base">Los nodos se quedarán exactamente donde hagas clic</p>
+                      <p className="text-sm md:text-base">Los nodos permanecen fijos durante toda la simulación</p>
                       <p className="text-xs md:text-sm mt-2 opacity-75">
-                        Conecta las plataformas para que el vehículo pueda cruzar
+                        Solo las vigas pueden moverse y flexionarse
                       </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Indicador de aceleración durante simulación */}
+                {isSimulating && vehicleAcceleration < 100 && (
+                  <div className="absolute top-4 left-4 bg-black/70 text-white px-3 py-2 rounded-lg">
+                    <div className="text-xs">Acelerando...</div>
+                    <div className="w-24 bg-gray-600 rounded-full h-1 mt-1">
+                      <div 
+                        className="bg-green-400 h-1 rounded-full transition-all duration-300"
+                        style={{ width: `${vehicleAcceleration}%` }}
+                      />
                     </div>
                   </div>
                 )}
@@ -868,7 +908,7 @@ export default function App() {
         {/* Footer responsivo */}
         <div className="mt-6 text-center text-gray-500 text-xs md:text-sm px-4">
           <p className="mb-1">BridgeX - Construye, prueba y optimiza tus diseños de puentes</p>
-          <p className="hidden md:block">Los nodos ahora se mantienen fijos en su posición hasta que pruebes la simulación</p>
+          <p className="hidden md:block">Los nodos permanecen completamente fijos - Solo las vigas pueden flexionarse</p>
         </div>
       </div>
     </div>
